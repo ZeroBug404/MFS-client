@@ -1,8 +1,21 @@
-
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Eye, EyeOff, Phone, Mail, User, Lock } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Eye, EyeOff, Phone, User, Lock, Mail } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import {
+  useUserLoginMutation,
+  useUserRegisterMutation,
+} from "@/redux/api/authApi";
+import { JwtPayload as DefaultJwtPayload } from "jwt-decode";
+import toast from "react-hot-toast";
+
+interface JwtPayload extends DefaultJwtPayload {
+  role?: string;
+}
+import { decodedToken } from "@/helpers/utils/jwt";
+import { storeUserInfo } from "@/services/auth.service";
+// import { toast } from "@/hooks/use-toast";
+import useValidation from "@/hooks/useValidation"; // Import the custom hook
 
 type AuthMode = "login" | "register";
 type AccountType = "user" | "agent";
@@ -12,9 +25,133 @@ const Index = () => {
   const [showPin, setShowPin] = useState(false);
   const [accountType, setAccountType] = useState<AccountType>("user");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [userRegister] = useUserRegisterMutation();
+  const [userLogin] = useUserLoginMutation();
+  const navigate = useNavigate();
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+
+  const {
+    errors,
+    validatePhone,
+    validatePin,
+    validateNid,
+    validateName,
+    validateEmail,
+  } = useValidation();
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    // Handle auth submission
+    const form = e.currentTarget;
+
+    const phoneValue = (form.elements.namedItem("phoneNo") as HTMLInputElement)
+      .value;
+    const pinValue = (form.elements.namedItem("pin") as HTMLInputElement).value;
+    const nidValue =
+      authMode === "register"
+        ? (form.elements.namedItem("nid") as HTMLInputElement)?.value
+        : "";
+    const nameValue =
+      authMode === "register"
+        ? (form.elements.namedItem("name") as HTMLInputElement)?.value
+        : "";
+    const emailValue =
+      authMode === "register"
+        ? (form.elements.namedItem("email") as HTMLInputElement)?.value
+        : "";
+
+    const isPhoneValid = validatePhone(phoneValue);
+    const isPinValid = validatePin(pinValue);
+    const isNidValid = authMode === "register" ? validateNid(nidValue) : true;
+    const isNameValid =
+      authMode === "register" ? validateName(nameValue) : true;
+    const isEmailValid =
+      authMode === "register" ? validateEmail(emailValue) : true;
+
+    if (
+      isPhoneValid &&
+      isPinValid
+      // &&
+      // isNidValid
+      // &&
+      // isNameValid &&
+      // isEmailValid
+    ) {
+      try {
+        const formData = new FormData(form);
+        const formValues = Object.fromEntries(formData);
+
+        if (authMode === "register") {
+          const data = {
+            name: formValues.name,
+            phoneNo: formValues.phoneNo,
+            email: formValues.email,
+            pin: formValues.pin,
+            role: accountType,
+            nid: formValues.nid,
+          };
+
+          // console.log(data);
+
+          const res = await userRegister(data).unwrap();
+          console.log(res);
+
+          const responseToken =
+            "error" in res ? undefined : res.data?.data?.accessToken;
+
+          if ("data" in res && res.data?.data?.accessToken) {
+            setIsLoading(!isLoading);
+
+            toast.success("User registered successfully!");
+
+            const decodedData: JwtPayload = decodedToken(responseToken);
+
+            if (decodedData?.role) {
+              navigate("/dashboard");
+            } else {
+              navigate("/register");
+            }
+
+            storeUserInfo({ accessToken: res?.data?.data?.accessToken });
+          } else {
+            setIsLoading(false);
+            // navigate("/login");
+            return toast.error("Wrong credential!");
+          }
+        } else {
+          const loginData = {
+            phoneNo: formValues.phoneNo,
+            pin: formValues.pin,
+          };
+
+          const res = await userLogin(loginData);
+
+          const responseToken =
+            "error" in res ? undefined : res.data?.data?.accessToken;
+
+          if ("data" in res && res.data?.data?.accessToken) {
+            setIsLoading(!isLoading);
+
+            toast.success("User logged in successfully!");
+
+            const decodedData: JwtPayload = decodedToken(responseToken);
+
+            if (decodedData?.role) {
+              navigate("/dashboard");
+            } else {
+              navigate("/login");
+            }
+
+            storeUserInfo({ accessToken: res?.data?.data?.accessToken });
+          } else {
+            setIsLoading(false);
+            navigate("/login");
+            return toast.error("Wrong credential!");
+          }
+        }
+      } catch (error) {
+        console.log(error);
+      }
+    }
   };
 
   return (
@@ -27,7 +164,9 @@ const Index = () => {
         {/* Logo Area */}
         <div className="text-center mb-8">
           <h2 className="text-3xl font-bold text-primary-800">WalletWaves</h2>
-          <p className="text-primary-600 mt-2">Secure Mobile Financial Services</p>
+          <p className="text-primary-600 mt-2">
+            Secure Mobile Financial Services
+          </p>
         </div>
 
         {/* Auth Card */}
@@ -58,20 +197,82 @@ const Index = () => {
 
           {/* Auth Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Phone/Email Input */}
+            {/* Phone Input */}
             <div className="relative">
               <label className="text-sm font-medium text-gray-700 mb-1 block">
-                Phone or Email
+                Phone Number
               </label>
               <div className="relative">
                 <input
                   type="text"
-                  className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary-300 focus:border-transparent transition-all duration-200 pl-10"
-                  placeholder="Enter phone or email"
+                  name="phoneNo"
+                  className={`w-full px-4 py-2 rounded-lg border transition-all duration-200 pl-10 ${
+                    errors.phone
+                      ? "border-red-400 focus:ring-2 focus:ring-red-300 focus:border-transparent"
+                      : "border-gray-300 focus:ring-2 focus:ring-primary-300 focus:border-transparent"
+                  }`}
+                  placeholder="Enter phone number"
+                  onChange={(e) => validatePhone(e.target.value)}
+                  inputMode="numeric"
                 />
                 <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
               </div>
+              {errors.phone && (
+                <p className="text-red-500 text-xs mt-1">{errors.phone}</p>
+              )}
             </div>
+
+            {authMode === "register" && (
+              <>
+                {/* Name Input */}
+                <div className="relative">
+                  <label className="text-sm font-medium text-gray-700 mb-1 block">
+                    Full Name
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      name="name"
+                      className={`w-full px-4 py-2 rounded-lg border transition-all duration-200 pl-10 ${
+                        errors.name
+                          ? "border-red-400 focus:ring-2 focus:ring-red-300 focus:border-transparent"
+                          : "border-gray-300 focus:ring-2 focus:ring-primary-300 focus:border-transparent"
+                      }`}
+                      placeholder="Enter your full name"
+                      onChange={(e) => validateName(e.target.value)}
+                    />
+                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  </div>
+                  {errors.name && (
+                    <p className="text-red-500 text-xs mt-1">{errors.name}</p>
+                  )}
+                </div>
+
+                {/* Email Input */}
+                <div className="relative">
+                  <label className="text-sm font-medium text-gray-700 mb-1 block">
+                    Email Address
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="email"
+                      name="email"
+                      className={`w-full px-4 py-2 rounded-lg border transition-all duration-200 pl-10 ${
+                        errors.email
+                          ? "border-red-400 focus:ring-2 focus:ring-red-300 focus:border-transparent"
+                          : "border-gray-300 focus:ring-2 focus:ring-primary-300 focus:border-transparent"
+                      }`}
+                      placeholder="Enter your email"
+                      onChange={(e) => validateEmail(e.target.value)}
+                    />
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  </div>
+                  {errors.email && (
+                    <p className="text-red-500 text-xs mt-1">{errors.email}</p>
+                  )}
+                </div>
+              </>
+            )}
 
             {/* PIN Input */}
             <div className="relative">
@@ -81,9 +282,16 @@ const Index = () => {
               <div className="relative">
                 <input
                   type={showPin ? "text" : "password"}
+                  name="pin"
                   maxLength={5}
-                  className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary-300 focus:border-transparent transition-all duration-200 pl-10"
+                  className={`w-full px-4 py-2 rounded-lg border transition-all duration-200 pl-10 ${
+                    errors.pin
+                      ? "border-red-400 focus:ring-2 focus:ring-red-300 focus:border-transparent"
+                      : "border-gray-300 focus:ring-2 focus:ring-primary-300 focus:border-transparent"
+                  }`}
                   placeholder="Enter 5-digit PIN"
+                  onChange={(e) => validatePin(e.target.value)}
+                  inputMode="numeric"
                 />
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <button
@@ -98,6 +306,9 @@ const Index = () => {
                   )}
                 </button>
               </div>
+              {errors.pin && (
+                <p className="text-red-500 text-xs mt-1">{errors.pin}</p>
+              )}
             </div>
 
             {/* Registration-specific fields */}
@@ -111,11 +322,21 @@ const Index = () => {
                   <div className="relative">
                     <input
                       type="text"
-                      className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary-300 focus:border-transparent transition-all duration-200 pl-10"
+                      name="nid"
+                      className={`w-full px-4 py-2 rounded-lg border transition-all duration-200 pl-10 ${
+                        errors.nid
+                          ? "border-red-400 focus:ring-2 focus:ring-red-300 focus:border-transparent"
+                          : "border-gray-300 focus:ring-2 focus:ring-primary-300 focus:border-transparent"
+                      }`}
                       placeholder="Enter NID number"
+                      onChange={(e) => validateNid(e.target.value)}
+                      inputMode="numeric"
                     />
                     <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                   </div>
+                  {errors.nid && (
+                    <p className="text-red-500 text-xs mt-1">{errors.nid}</p>
+                  )}
                 </div>
 
                 {/* Account Type Selection */}
@@ -124,6 +345,7 @@ const Index = () => {
                     Account Type
                   </label>
                   <select
+                    name="accountType"
                     value={accountType}
                     onChange={(e) =>
                       setAccountType(e.target.value as AccountType)
