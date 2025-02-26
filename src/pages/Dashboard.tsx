@@ -12,7 +12,14 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
+import { User, UserInfo, UsersData } from "@/interface/interfsces";
 import { cn } from "@/lib/utils";
+import {
+  useAgentCashInMutation,
+  useCashInMutation,
+  useCashOutMutation,
+  useSendMoneyMutation,
+} from "@/redux/api/transactionApi";
 import { useGetAllUserQuery, useGetBalanceQuery } from "@/redux/api/userApi";
 import { getUserInfo } from "@/services/auth.service";
 import {
@@ -26,7 +33,7 @@ import {
   Users,
   Wallet,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Area,
   AreaChart,
@@ -38,6 +45,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import toast from "react-hot-toast";
 
 const transactionHistory = [
   { time: "00:00", amount: 1200 },
@@ -82,23 +90,13 @@ interface DashboardProps {
 const Dashboard = ({ role }: DashboardProps) => {
   const [amount, setAmount] = useState("");
   const [recipient, setRecipient] = useState("");
-  const { toast } = useToast();
+  const { toast: systemToast } = useToast();
   const [loading, setLoading] = useState(false);
 
-  interface User {
-    _id: string;
-    phoneNo: string;
-    role: string;
-    isApproved: boolean;
-  }
-
-  interface UsersData {
-    data: User[];
-  }
-
-  interface UserInfo {
-    contactNo: string;
-  }
+  const [cashOut] = useCashOutMutation();
+  const [cashIn] = useCashInMutation();
+  const [sendMoney] = useSendMoneyMutation();
+  const [agentCashIn] = useAgentCashInMutation();
 
   const userInfo: UserInfo | string = getUserInfo();
 
@@ -108,33 +106,88 @@ const Dashboard = ({ role }: DashboardProps) => {
     (user: User) =>
       typeof userInfo !== "string" && user.phoneNo === userInfo?.contactNo
   );
-  // console.log(usersData.data.length - 1);
 
-  // the user data is not available in the first render
-  // so we need to check if the user data is available
-  // before
+  // console.log(user);
 
   const query = {
     userId: user?._id,
     role: user?.role,
   };
 
-  // console.log(query);
-
   const { data: userBalance, isLoading } = useGetBalanceQuery(query);
 
-  const handleSendMoney = () => {
-    toast({
-      title: "Money Sent",
-      description: `Successfully sent $${amount} to ${recipient}`,
-    });
+  const handleSendMoney = async () => {
+    if (user?.balance < Number(amount)) {
+      return toast.error("Insufficient balance");
+    }
+
+    const data = {
+      senderId: user?._id,
+      recipientPhone: recipient,
+      amount: Number(amount),
+    };
+
+    const res = await sendMoney(data).unwrap();
+
+    console.log(res);
+
+    if (res?.data?.data?.success) {
+      setAmount("");
+      setRecipient("");
+      toast.success(`Successfully sent $${amount} to ${recipient}`);
+    } else {
+      toast.error("Send money failed");
+    }
   };
 
-  const handleAddFunds = () => {
-    toast({
-      title: "Funds Added",
-      description: `Successfully added $${amount} to your account`,
-    });
+  const handleCashOut = async () => {
+    if (user?.balance < Number(amount)) {
+      return toast.error("Insufficient balance");
+    }
+
+    const data = {
+      userId: user?._id,
+      agentPhone: recipient,
+      amount: Number(amount),
+    };
+
+    const res = await cashOut(data);
+
+    if (res?.data?.data?.fee) {
+      setAmount("");
+      setRecipient("");
+      toast.success("Cash out successful");
+    } else {
+      toast.error("Cash out failed");
+    }
+  };
+
+  const handleCashIn = async () => {
+    if (user?.balance < Number(amount)) {
+      return toast.error("Insufficient balance");
+    }
+
+    const data = {
+      agentId: user?._id,
+      recipientPhone: recipient,
+      amount: Number(amount),
+    };
+    await cashIn(data).unwrap();
+
+    toast.success("Cash in successful");
+  };
+
+  const handleAdminCashIn = async () => {
+    const data = {
+      adminId: user?._id,
+      recipientPhone: recipient,
+      amount: Number(amount),
+    };
+    const res = await agentCashIn(data).unwrap();
+
+    console.log(res);
+
+    toast.success("Cash in successful");
   };
 
   const totalUser = usersData?.data?.length - 1;
@@ -142,14 +195,87 @@ const Dashboard = ({ role }: DashboardProps) => {
   const activeAgents = usersData?.data?.filter(
     (user: User) => user.role === "agent" && user?.isApproved
   ).length;
- 
+
   const totalBalance = userBalance?.data?.total;
+
+  const [isBalanceVisible, setIsBalanceVisible] = useState(false);
+
+  // Automatically hide the balance after 3 minutes
+  useEffect(() => {
+    if (isBalanceVisible) {
+      const timer = setTimeout(() => {
+        setIsBalanceVisible(false);
+      }, 12000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [isBalanceVisible]);
+
+  const handleClick = () => {
+    setIsBalanceVisible(true);
+  };
+
+  const formattedBalance = user?.balance
+    ? parseFloat(user.balance.toString()).toFixed(2)
+    : "0.00";
 
   const renderRoleSpecificContent = () => {
     switch (role) {
       case "admin":
         return (
           <>
+            <div className="flex justify-between">
+              <div className="space-y-1">
+                <h1 className="text-2xl font-bold text-gray-900">
+                  Welcome back, Admin!
+                </h1>
+                <p className="text-gray-600">
+                  Here's what's happening with your account today.
+                </p>
+              </div>
+              <div className="flex gap-3">
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Button className="flex items-center gap-2">
+                      <Send className="w-4 h-4" />
+                      Cash In
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Cash In</DialogTitle>
+                      <DialogDescription>
+                        Enter the recipient and amount to send
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                      <div className="space-y-2">
+                        <label htmlFor="recipient">Recipient</label>
+                        <Input
+                          id="recipient"
+                          placeholder="Enter recipient no"
+                          value={recipient}
+                          onChange={(e) => setRecipient(e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label htmlFor="amount">Amount</label>
+                        <Input
+                          id="amount"
+                          type="number"
+                          placeholder="Enter amount"
+                          value={amount}
+                          onChange={(e) => setAmount(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button onClick={handleAdminCashIn}>Cash In</Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              </div>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               <Card className="bg-white/80 backdrop-blur-sm">
                 <CardContent className="pt-6">
@@ -176,7 +302,9 @@ const Dashboard = ({ role }: DashboardProps) => {
                       <p className="text-sm font-medium text-gray-500">
                         System Revenue
                       </p>
-                      <h3 className="text-2xl font-bold">{totalBalance}</h3>
+                      <h3 className="text-2xl font-bold">
+                        {totalBalance} Taka
+                      </h3>
                     </div>
                     <DollarSign className="w-5 h-5 text-primary-600" />
                   </div>
@@ -277,140 +405,254 @@ const Dashboard = ({ role }: DashboardProps) => {
       case "agent":
         return (
           <>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <Card className="bg-white/80 backdrop-blur-sm">
-                <CardContent className="pt-6">
-                  <div className="flex justify-between items-start">
-                    <div className="space-y-2">
-                      <p className="text-sm font-medium text-gray-500">
-                        Today's Transactions
-                      </p>
-                      <h3 className="text-2xl font-bold">42</h3>
+            <div className="flex justify-between">
+              <div className="space-y-1">
+                <h1 className="text-2xl font-bold text-gray-900">
+                  Welcome back, Agent!
+                </h1>
+                <p className="text-gray-600">
+                  Here's what's happening with your account today.
+                </p>
+              </div>
+              <div className="flex gap-3">
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Button className="flex items-center gap-2">
+                      <Send className="w-4 h-4" />
+                      Cash In
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Cash In</DialogTitle>
+                      <DialogDescription>
+                        Enter the users phone no and amount to send
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                      <div className="space-y-2">
+                        <label htmlFor="recipient">Recipient</label>
+                        <Input
+                          id="recipient"
+                          placeholder="Enter recipient no"
+                          value={recipient}
+                          onChange={(e) => setRecipient(e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label htmlFor="amount">Amount</label>
+                        <Input
+                          id="amount"
+                          type="number"
+                          placeholder="Enter amount"
+                          value={amount}
+                          onChange={(e) => setAmount(e.target.value)}
+                        />
+                      </div>
                     </div>
-                    <ArrowUpRight className="w-5 h-5 text-primary-600" />
-                  </div>
-                  <div className="mt-4 flex items-center gap-2 text-sm text-green-600">
-                    <ArrowUp className="w-4 h-4" />
-                    <span>15% increase</span>
-                  </div>
-                </CardContent>
-              </Card>
+                    <DialogFooter>
+                      <Button onClick={handleCashIn}>Cash In</Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
 
-              <Card className="bg-white/80 backdrop-blur-sm">
-                <CardContent className="pt-6">
-                  <div className="flex justify-between items-start">
-                    <div className="space-y-2">
-                      <p className="text-sm font-medium text-gray-500">
-                        Cash Balance
-                      </p>
-                      <h3 className="text-2xl font-bold">$8,540</h3>
-                    </div>
-                    <DollarSign className="w-5 h-5 text-primary-600" />
-                  </div>
-                  <div className="mt-4 flex items-center gap-2 text-sm text-gray-500">
-                    <Clock className="w-4 h-4" />
-                    <span>Last updated 5m ago</span>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-white/80 backdrop-blur-sm">
-                <CardContent className="pt-6">
-                  <div className="flex justify-between items-start">
-                    <div className="space-y-2">
-                      <p className="text-sm font-medium text-gray-500">
-                        Commission Earned
-                      </p>
-                      <h3 className="text-2xl font-bold">$234</h3>
-                    </div>
-                    <DollarSign className="w-5 h-5 text-primary-600" />
-                  </div>
-                  <div className="mt-4 flex items-center gap-2 text-sm text-green-600">
-                    <ArrowUp className="w-4 h-4" />
-                    <span>8% increase</span>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-white/80 backdrop-blur-sm">
-                <CardContent className="pt-6">
-                  <div className="flex justify-between items-start">
-                    <div className="space-y-2">
-                      <p className="text-sm font-medium text-gray-500">
-                        Customer Rating
-                      </p>
-                      <h3 className="text-2xl font-bold">4.8/5</h3>
-                    </div>
-                    <Users className="w-5 h-5 text-primary-600" />
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2.5 mt-4">
-                    <div
-                      className="bg-primary h-2.5 rounded-full"
-                      style={{ width: "96%" }}
-                    ></div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Agent Transaction History */}
-            <Card className="bg-white/80 backdrop-blur-sm">
-              <CardHeader>
-                <CardTitle>Recent Transactions</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-6">
-                  {recentTransactions.map((transaction) => (
-                    <div
-                      key={transaction.id}
-                      className="flex items-center justify-between py-2"
+                {/* <Dialog>
+                  <DialogTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="flex items-center gap-2"
                     >
-                      <div className="flex items-center gap-4">
-                        <div
-                          className={cn(
-                            "w-10 h-10 rounded-full flex items-center justify-center",
-                            transaction.type === "send"
-                              ? "bg-red-100 text-red-600"
-                              : "bg-green-100 text-green-600"
-                          )}
-                        >
-                          {transaction.type === "send" ? (
-                            <ArrowUp className="w-5 h-5" />
-                          ) : (
-                            <ArrowDown className="w-5 h-5" />
-                          )}
-                        </div>
-                        <div>
-                          <p className="font-medium">
-                            {transaction.type === "send"
-                              ? `Processed withdrawal for ${transaction.recipient}`
-                              : `Processed deposit from ${transaction.sender}`}
-                          </p>
-                          <p className="text-sm text-gray-500">
-                            {transaction.time}
-                          </p>
-                        </div>
+                      <Wallet className="w-4 h-4" />
+                      Cash Out
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Cash Out</DialogTitle>
+                      <DialogDescription>
+                        Enter the amount to cash out from your account
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                      <div className="space-y-2">
+                        <label htmlFor="recipient">Recipient</label>
+                        <Input
+                          id="recipient"
+                          placeholder="Enter recipient no"
+                          value={recipient}
+                          onChange={(e) => setRecipient(e.target.value)}
+                        />
                       </div>
-                      <div className="text-right">
-                        <p className="font-medium text-gray-900">
-                          ${transaction.amount}
-                        </p>
-                        <p
-                          className={cn(
-                            "text-sm",
-                            transaction.status === "completed"
-                              ? "text-green-600"
-                              : "text-yellow-600"
-                          )}
-                        >
-                          {transaction.status}
-                        </p>
+                      <div className="space-y-2">
+                        <label htmlFor="addAmount">Amount</label>
+                        <Input
+                          id="addAmount"
+                          type="number"
+                          placeholder="Enter amount"
+                          value={amount}
+                          onChange={(e) => setAmount(e.target.value)}
+                        />
                       </div>
                     </div>
-                  ))}
+                    <DialogFooter>
+                      <Button onClick={handleCashOut}>Cash Out</Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog> */}
+              </div>
+            </div>
+            {user?.role === "agent" && user?.isApproved ? (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                  <Card className="bg-white/80 backdrop-blur-sm">
+                    <CardContent className="pt-6">
+                      <div className="flex justify-between items-start">
+                        <div className="space-y-2">
+                          <p className="text-sm font-medium text-gray-500">
+                            Today's Transactions
+                          </p>
+                          <h3 className="text-2xl font-bold">42</h3>
+                        </div>
+                        <ArrowUpRight className="w-5 h-5 text-primary-600" />
+                      </div>
+                      <div className="mt-4 flex items-center gap-2 text-sm text-green-600">
+                        <ArrowUp className="w-4 h-4" />
+                        <span>15% increase</span>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="bg-white/80 backdrop-blur-sm">
+                    <CardContent className="pt-6">
+                      <div className="flex justify-between items-start">
+                        <div
+                          className="space-y-2"
+                          onClick={handleClick}
+                          style={{ cursor: "pointer" }}
+                        >
+                          <p className="text-sm font-medium text-gray-500">
+                            Cash Balance
+                          </p>
+                          <h3
+                            className={`text-2xl font-bold ${
+                              isBalanceVisible ? "" : "blur"
+                            }`}
+                          >
+                            {formattedBalance} Taka
+                          </h3>
+                        </div>
+                        <DollarSign className="w-5 h-5 text-primary-600" />
+                      </div>
+                      <div className="mt-4 flex items-center gap-2 text-sm text-gray-500">
+                        <Clock className="w-4 h-4" />
+                        <span>Last updated 5m ago</span>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="bg-white/80 backdrop-blur-sm">
+                    <CardContent className="pt-6">
+                      <div className="flex justify-between items-start">
+                        <div className="space-y-2">
+                          <p className="text-sm font-medium text-gray-500">
+                            Commission Earned
+                          </p>
+                          <h3 className="text-2xl font-bold">$234</h3>
+                        </div>
+                        <DollarSign className="w-5 h-5 text-primary-600" />
+                      </div>
+                      <div className="mt-4 flex items-center gap-2 text-sm text-green-600">
+                        <ArrowUp className="w-4 h-4" />
+                        <span>8% increase</span>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="bg-white/80 backdrop-blur-sm">
+                    <CardContent className="pt-6">
+                      <div className="flex justify-between items-start">
+                        <div className="space-y-2">
+                          <p className="text-sm font-medium text-gray-500">
+                            Customer Rating
+                          </p>
+                          <h3 className="text-2xl font-bold">4.8/5</h3>
+                        </div>
+                        <Users className="w-5 h-5 text-primary-600" />
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-2.5 mt-4">
+                        <div
+                          className="bg-primary h-2.5 rounded-full"
+                          style={{ width: "96%" }}
+                        ></div>
+                      </div>
+                    </CardContent>
+                  </Card>
                 </div>
-              </CardContent>
-            </Card>
+
+                {/* Agent Transaction History */}
+                <Card className="bg-white/80 backdrop-blur-sm">
+                  <CardHeader>
+                    <CardTitle>Recent Transactions</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-6">
+                      {recentTransactions.map((transaction) => (
+                        <div
+                          key={transaction.id}
+                          className="flex items-center justify-between py-2"
+                        >
+                          <div className="flex items-center gap-4">
+                            <div
+                              className={cn(
+                                "w-10 h-10 rounded-full flex items-center justify-center",
+                                transaction.type === "send"
+                                  ? "bg-red-100 text-red-600"
+                                  : "bg-green-100 text-green-600"
+                              )}
+                            >
+                              {transaction.type === "send" ? (
+                                <ArrowUp className="w-5 h-5" />
+                              ) : (
+                                <ArrowDown className="w-5 h-5" />
+                              )}
+                            </div>
+                            <div>
+                              <p className="font-medium">
+                                {transaction.type === "send"
+                                  ? `Processed withdrawal for ${transaction.recipient}`
+                                  : `Processed deposit from ${transaction.sender}`}
+                              </p>
+                              <p className="text-sm text-gray-500">
+                                {transaction.time}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-medium text-gray-900">
+                              ${transaction.amount}
+                            </p>
+                            <p
+                              className={cn(
+                                "text-sm",
+                                transaction.status === "completed"
+                                  ? "text-green-600"
+                                  : "text-yellow-600"
+                              )}
+                            >
+                              {transaction.status}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </>
+            ) : (
+              <h1 className="text-2xl font-bold text-gray-900">
+                Your account is not approved yet, please contact with admin.
+              </h1>
+            )}
           </>
         );
 
@@ -446,7 +688,7 @@ const Dashboard = ({ role }: DashboardProps) => {
                         <label htmlFor="recipient">Recipient</label>
                         <Input
                           id="recipient"
-                          placeholder="Enter recipient name"
+                          placeholder="Enter recipient no"
                           value={recipient}
                           onChange={(e) => setRecipient(e.target.value)}
                         />
@@ -475,17 +717,26 @@ const Dashboard = ({ role }: DashboardProps) => {
                       className="flex items-center gap-2"
                     >
                       <Wallet className="w-4 h-4" />
-                      Add Funds
+                      Cash Out
                     </Button>
                   </DialogTrigger>
                   <DialogContent>
                     <DialogHeader>
-                      <DialogTitle>Add Funds</DialogTitle>
+                      <DialogTitle>Cash Out</DialogTitle>
                       <DialogDescription>
-                        Enter the amount to add to your account
+                        Enter the amount to cash out from your account
                       </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4 py-4">
+                      <div className="space-y-2">
+                        <label htmlFor="recipient">Recipient</label>
+                        <Input
+                          id="recipient"
+                          placeholder="Enter recipient no"
+                          value={recipient}
+                          onChange={(e) => setRecipient(e.target.value)}
+                        />
+                      </div>
                       <div className="space-y-2">
                         <label htmlFor="addAmount">Amount</label>
                         <Input
@@ -498,7 +749,7 @@ const Dashboard = ({ role }: DashboardProps) => {
                       </div>
                     </div>
                     <DialogFooter>
-                      <Button onClick={handleAddFunds}>Add Funds</Button>
+                      <Button onClick={handleCashOut}>Cash Out</Button>
                     </DialogFooter>
                   </DialogContent>
                 </Dialog>
@@ -509,16 +760,22 @@ const Dashboard = ({ role }: DashboardProps) => {
               <Card className="bg-white/80 backdrop-blur-sm">
                 <CardContent className="pt-6">
                   <div className="flex justify-between items-start">
-                    <div className="space-y-2">
+                    <div
+                      className="space-y-2"
+                      onClick={handleClick}
+                      style={{ cursor: "pointer" }}
+                    >
                       <p className="text-sm font-medium text-gray-500">
                         Total Balance
                       </p>
-                      <h3 className="text-2xl font-bold">$12,580</h3>
+                      <h3
+                        className={`text-2xl font-bold ${
+                          isBalanceVisible ? "" : "blur"
+                        }`}
+                      >
+                        {formattedBalance} Taka
+                      </h3>
                     </div>
-                    <span className="flex items-center text-green-600 text-sm font-medium">
-                      <ArrowUp className="w-4 h-4 mr-1" />
-                      8.2%
-                    </span>
                   </div>
                   <div className="h-[60px] mt-4">
                     <ResponsiveContainer width="100%" height="100%">
@@ -543,7 +800,7 @@ const Dashboard = ({ role }: DashboardProps) => {
                       <p className="text-sm font-medium text-gray-500">
                         Monthly Spending
                       </p>
-                      <h3 className="text-2xl font-bold">$4,230</h3>
+                      <h3 className="text-2xl font-bold">4,230 Taka</h3>
                     </div>
                     <span className="flex items-center text-red-600 text-sm font-medium">
                       <ArrowDown className="w-4 h-4 mr-1" />

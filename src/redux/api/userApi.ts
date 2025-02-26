@@ -45,6 +45,13 @@ export const userApi = baseApi.injectEndpoints({
         headers: headers,
       }),
     }),
+    transactionHistory: build.query({
+      query: () => ({
+        url: `transactions/admin/transactions`,
+        method: "GET",
+        headers: headers,
+      }),
+    }),
   }),
 });
 
@@ -53,4 +60,5 @@ export const {
   useGetAllUserQuery,
   useApproveAgentMutation,
   useBlockUserMutation,
+  useTransactionHistoryQuery,
 } = userApi;

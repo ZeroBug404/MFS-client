@@ -51,13 +51,13 @@ const RoleNav = ({ role }: { role: Role }) => {
       path: "/dashboard",
       roles: ["user", "agent", "admin"],
     },
-    { icon: Send, label: "Send Money", path: "/send", roles: ["user"] },
-    {
-      icon: DollarSign,
-      label: "Cash Actions",
-      path: "/cash",
-      roles: ["user", "agent"],
-    },
+    // { icon: Send, label: "Send Money", path: "/send", roles: ["user"] },
+    // {
+    //   icon: DollarSign,
+    //   label: "Cash Actions",
+    //   path: "/cash",
+    //   roles: ["user", "agent"],
+    // },
     {
       icon: Bell,
       label: "Notifications",

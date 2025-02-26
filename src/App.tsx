@@ -26,6 +26,7 @@ import PrivateRoutes from "./routes/PrivateRoutes";
 import { decodedToken } from "./helpers/utils/jwt";
 import { JwtPayload as DefaultJwtPayload } from "jwt-decode";
 import { getUserInfo } from "./services/auth.service";
+import UserNotifications from "./pages/UserNotifications";
 
 interface JwtPayload extends DefaultJwtPayload {
   role?: "user" | "admin" | "agent";
@@ -128,6 +129,10 @@ const App = () => {
                       <NotificationsWrapper />
                     </PrivateRoutes>
                   }
+                />
+                <Route
+                  path="/users/notifications/:userId"
+                  element={<UserNotifications />}
                 />
                 <Route
                   path="/users/:role"

@@ -25,7 +25,7 @@ import {
   UserCog,
   XCircle,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import {
   useApproveAgentMutation,
@@ -34,6 +34,7 @@ import {
 } from "@/redux/api/userApi";
 import { getUserInfo } from "@/services/auth.service";
 import toast from "react-hot-toast";
+import { useNavigate } from "react-router-dom";
 
 // Mock data - replace with actual data later
 const mockUsers = [
@@ -80,13 +81,18 @@ const UserManagement = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState<"all" | "pending">("all");
 
+  const navigate = useNavigate();
+
   const [approveAgent] = useApproveAgentMutation();
 
   const [blockUser] = useBlockUserMutation();
 
-  const userInfo: UserInfo | string = getUserInfo();
+  const { data: usersData, refetch } = useGetAllUserQuery({});
 
-  const { data: usersData }: { data?: UsersData } = useGetAllUserQuery({});
+  // Manually refetch data when needed
+  useEffect(() => {
+    refetch();
+  }, [searchQuery, activeTab, refetch]);
 
   // console.log(usersData?.data);
 
@@ -103,23 +109,15 @@ const UserManagement = () => {
   });
 
   const isApproveAgent = async (id: string) => {
-    const res = await approveAgent(id);
-    if (res.data.data.success) {
-      toast.success("Agent approved successfully");
-    } else {
-      toast.error("Failed to approve agent");
-    }
-    console.log(res);
+    await approveAgent(id);
+
+    toast.success("Agent approved successfully");
   };
 
   const isBlockUser = async (id: string) => {
-    const res = await blockUser(id);
-    if (res.data.data.success) {
-      toast.success("User blocked successfully");
-    } else {
-      toast.error("Failed to block user");
-    }
-    console.log(res);
+    await blockUser(id);
+
+    toast.success("Status changed successfully");
   };
 
   const totalUser = usersData?.data?.length - 1;
@@ -127,6 +125,10 @@ const UserManagement = () => {
   const activeAgents = usersData?.data?.filter(
     (user: User) => user.role === "agent" && user?.isApproved
   ).length;
+
+  const handleUserClick = (userId) => {
+    navigate(`/users/notifications/${userId}`); 
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-primary-50 to-primary-100">
@@ -210,6 +212,7 @@ const UserManagement = () => {
                   <TableHead>Phone</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Balance</TableHead>
                   <TableHead>Last Active</TableHead>
                   <TableHead className="w-[100px]">Actions</TableHead>
                 </TableRow>
@@ -217,7 +220,12 @@ const UserManagement = () => {
               <TableBody>
                 {filteredUsers?.map((user) => (
                   <TableRow key={user._id}>
-                    <TableCell className="font-medium">{user.name}</TableCell>
+                    <TableCell
+                      className="font-medium cursor-pointer"
+                      onClick={() => handleUserClick(user._id)}
+                    >
+                      {user.name}
+                    </TableCell>
                     <TableCell>{user.phoneNo}</TableCell>
                     <TableCell>
                       <span
@@ -249,16 +257,17 @@ const UserManagement = () => {
                           }
                         )}
                       >
-                        {user.isApproved === true
+                        {user.isApproved === true && user.isActive === true
                           ? // <CheckCircle2 className="w-3 h-3" />
                             "Approved"
-                          : user.isActive === false
+                          : user.isApproved === true && user.isActive === false
                           ? // <Ban className="w-3 h-3" />
                             "Blocked"
                           : // <XCircle className="w-3 h-3" />
                             "Pending"}
                       </span>
                     </TableCell>
+                    <TableCell>{user.balance}</TableCell>
                     <TableCell>
                       {new Date(user.updatedAt).toLocaleDateString()}
                     </TableCell>

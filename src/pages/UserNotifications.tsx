@@ -11,8 +11,13 @@ import {
 import { cn, transformToNotifications } from "@/lib/utils";
 import { useGettransactionHistoryQuery } from "@/redux/api/transactionApi";
 import { User, UserInfo, UsersData } from "@/interface/interfsces";
-import { useGetAllUserQuery } from "@/redux/api/userApi";
+import {
+  useGetAllUserQuery,
+  useTransactionHistoryQuery,
+} from "@/redux/api/userApi";
 import { getUserInfo } from "@/services/auth.service";
+import { useParams } from "react-router-dom";
+import { useState } from "react";
 
 interface Notification {
   id: number;
@@ -27,62 +32,9 @@ const getNotificationsByRole = (
   role: "user" | "agent" | "admin",
   baseNotifications: Notification[]
 ): Notification[] => {
-  // const baseNotifications: Notification[] = [
-  //   {
-  //     id: 1,
-  //     type: "success",
-  //     title: "Transaction Successful",
-  //     message: "Your last transaction has been processed successfully.",
-  //     time: "2 minutes ago",
-  //     read: false,
-  //   },
-  //   {
-  //     id: 2,
-  //     type: "info",
-  //     title: "System Update",
-  //     message: "The system will undergo maintenance in 24 hours.",
-  //     time: "1 hour ago",
-  //     read: true,
-  //   },
-  // ];
+  const agentNotifications: Notification[] = [];
 
-  const agentNotifications: Notification[] = [
-    // {
-    //   id: 3,
-    //   type: "warning",
-    //   title: "Low Cash Balance",
-    //   message: "Your cash balance is running low. Please add funds.",
-    //   time: "30 minutes ago",
-    //   read: false,
-    // },
-    // {
-    //   id: 4,
-    //   type: "success",
-    //   title: "Commission Earned",
-    //   message: "You've earned $50 in commission today.",
-    //   time: "2 hours ago",
-    //   read: true,
-    // },
-  ];
-
-  const adminNotifications: Notification[] = [
-    {
-      id: 5,
-      type: "error",
-      title: "System Alert",
-      message: "High transaction volume detected. Please monitor.",
-      time: "5 minutes ago",
-      read: false,
-    },
-    {
-      id: 6,
-      type: "warning",
-      title: "Agent Verification Required",
-      message: "New agent registration pending approval.",
-      time: "1 hour ago",
-      read: true,
-    },
-  ];
+  const adminNotifications: Notification[] = [];
 
   switch (role) {
     case "admin":
@@ -115,20 +67,20 @@ interface NotificationsProps {
   role: "user" | "agent" | "admin";
 }
 
-const Notifications = ({ role = "user" }: NotificationsProps) => {
+const UserNotifications = () => {
+  const { userId } = useParams();
   const userInfo: UserInfo | string = getUserInfo();
   const { data: usersData }: { data?: UsersData } = useGetAllUserQuery({});
 
   const user: User | undefined = usersData?.data?.find(
-    (user: User) =>
-      typeof userInfo !== "string" && user.phoneNo === userInfo?.contactNo
+    (user: User) => typeof userInfo !== "string" && user._id === userId
   );
 
-  const query = { userId: user?._id };
+  console.log(user);
 
-  const { data } = useGettransactionHistoryQuery(query);
+  const { data } = useTransactionHistoryQuery({});
 
-  console.log(data?.data);
+  console.log(data);
 
   const transactions = data?.data?.filter(
     (transaction) =>
@@ -140,13 +92,13 @@ const Notifications = ({ role = "user" }: NotificationsProps) => {
   );
 
   const notifications: Notification[] = getNotificationsByRole(
-    role,
+    "admin",
     baseNotifications
   );
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-primary-50 to-primary-100">
-      <RoleNav role={role} />
+      <RoleNav role="admin" />
       <div className="lg:pl-64 p-8">
         <div className="max-w-4xl mx-auto space-y-8">
           <div className="flex items-center gap-4">
@@ -212,4 +164,4 @@ const Notifications = ({ role = "user" }: NotificationsProps) => {
   );
 };
 
-export default Notifications;
+export default UserNotifications;
