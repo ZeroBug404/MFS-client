@@ -88,11 +88,11 @@ const RoleNav = ({ role }: { role: Role }) => {
 
   const filteredItems = navItems.filter((item) => item.roles.includes(role));
 
-  const handleRoleChange = (newRole: Role) => {
-    const currentPath = window.location.pathname;
-    const basePath = currentPath.split("/")[1];
-    navigate(`/${basePath}/${newRole}`);
-  };
+  // const handleRoleChange = (newRole: Role) => {
+  //   const currentPath = window.location.pathname;
+  //   const basePath = currentPath.split("/")[1];
+  //   navigate(`/${basePath}/${newRole}`);
+  // };
 
   return (
     <div className="relative">
@@ -116,7 +116,6 @@ const RoleNav = ({ role }: { role: Role }) => {
               <p className="text-sm text-gray-500 capitalize">{role}</p>
             </div>
           </div>
-          
         </div>
 
         <nav className="space-y-2">
@@ -127,7 +126,13 @@ const RoleNav = ({ role }: { role: Role }) => {
             return (
               <div
                 key={item.path}
-                onClick={item.onClick} // Handle onClick for logout
+                onClick={() => {
+                  if (item.onClick) {
+                    item.onClick(); // Handle logout
+                  } else {
+                    navigate(itemPath); // Navigate to other pages
+                  }
+                }} // Handle onClick for logout
                 className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-700 hover:bg-primary-50 hover:text-primary-600 transition-all duration-200 cursor-pointer"
               >
                 <item.icon className="w-5 h-5" />
