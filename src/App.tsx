@@ -69,6 +69,8 @@ const App = () => {
 
   const role = userInfo && typeof userInfo !== "string" ? userInfo.role : null;
 
+  console.log("role", role);
+
   return loading ? (
     <>
       <Loader />

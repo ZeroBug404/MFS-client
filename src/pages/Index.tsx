@@ -90,32 +90,31 @@ const Index = () => {
             nid: formValues.nid,
           };
 
-          // console.log(data);
-
           const res = await userRegister(data).unwrap();
-          console.log(res);
 
           const responseToken =
-            "error" in res ? undefined : res.data?.data?.accessToken;
+            "error" in res ? undefined : res.data?.accessToken;
 
-          if ("data" in res && res.data?.data?.accessToken) {
+          if ("data" in res && res.data?.accessToken) {
             setIsLoading(!isLoading);
 
             toast.success("User registered successfully!");
 
             const decodedData: JwtPayload = decodedToken(responseToken);
 
-            if (decodedData?.role) {
-              navigate("/dashboard");
+            if (decodedData?.role === "user") {
+              navigate("/dashboard/user");
+            } else if (decodedData?.role === "agent") {
+              navigate("/dashboard/agent");
             } else {
-              navigate("/register");
+              navigate("/dashboard/admin");
             }
 
-            storeUserInfo({ accessToken: res?.data?.data?.accessToken });
+            storeUserInfo({ accessToken: res?.data?.accessToken });
           } else {
             setIsLoading(false);
             // navigate("/login");
-            return toast.error("Wrong credential!");
+            return toast.error("Error creating user!");
           }
         } else {
           const loginData = {
@@ -135,16 +134,18 @@ const Index = () => {
 
             const decodedData: JwtPayload = decodedToken(responseToken);
 
-            if (decodedData?.role) {
-              navigate("/dashboard");
+            if (decodedData?.role === "user") {
+              navigate("/dashboard/user");
+            } else if (decodedData?.role === "agent") {
+              navigate("/dashboard/agent");
             } else {
-              navigate("/login");
+              navigate("/dashboard/admin");
             }
 
             storeUserInfo({ accessToken: res?.data?.data?.accessToken });
           } else {
             setIsLoading(false);
-            navigate("/login");
+            // navigate("/login");
             return toast.error("Wrong credential!");
           }
         }

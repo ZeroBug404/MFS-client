@@ -13,6 +13,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { useGetAllUserQuery, useGetBalanceQuery } from "@/redux/api/userApi";
+import { getUserInfo } from "@/services/auth.service";
 import {
   ArrowDown,
   ArrowUp,
@@ -81,6 +83,45 @@ const Dashboard = ({ role }: DashboardProps) => {
   const [amount, setAmount] = useState("");
   const [recipient, setRecipient] = useState("");
   const { toast } = useToast();
+  const [loading, setLoading] = useState(false);
+
+  interface User {
+    _id: string;
+    phoneNo: string;
+    role: string;
+    isApproved: boolean;
+  }
+
+  interface UsersData {
+    data: User[];
+  }
+
+  interface UserInfo {
+    contactNo: string;
+  }
+
+  const userInfo: UserInfo | string = getUserInfo();
+
+  const { data: usersData }: { data?: UsersData } = useGetAllUserQuery({});
+
+  const user: User | undefined = usersData?.data?.find(
+    (user: User) =>
+      typeof userInfo !== "string" && user.phoneNo === userInfo?.contactNo
+  );
+  // console.log(usersData.data.length - 1);
+
+  // the user data is not available in the first render
+  // so we need to check if the user data is available
+  // before
+
+  const query = {
+    userId: user?._id,
+    role: user?.role,
+  };
+
+  // console.log(query);
+
+  const { data: userBalance, isLoading } = useGetBalanceQuery(query);
 
   const handleSendMoney = () => {
     toast({
@@ -96,6 +137,14 @@ const Dashboard = ({ role }: DashboardProps) => {
     });
   };
 
+  const totalUser = usersData?.data?.length - 1;
+
+  const activeAgents = usersData?.data?.filter(
+    (user: User) => user.role === "agent" && user?.isApproved
+  ).length;
+ 
+  const totalBalance = userBalance?.data?.total;
+
   const renderRoleSpecificContent = () => {
     switch (role) {
       case "admin":
@@ -109,7 +158,7 @@ const Dashboard = ({ role }: DashboardProps) => {
                       <p className="text-sm font-medium text-gray-500">
                         Total Users
                       </p>
-                      <h3 className="text-2xl font-bold">15,234</h3>
+                      <h3 className="text-2xl font-bold">{totalUser}</h3>
                     </div>
                     <Users className="w-5 h-5 text-primary-600" />
                   </div>
@@ -127,7 +176,7 @@ const Dashboard = ({ role }: DashboardProps) => {
                       <p className="text-sm font-medium text-gray-500">
                         System Revenue
                       </p>
-                      <h3 className="text-2xl font-bold">$52,389</h3>
+                      <h3 className="text-2xl font-bold">{totalBalance}</h3>
                     </div>
                     <DollarSign className="w-5 h-5 text-primary-600" />
                   </div>
@@ -145,7 +194,7 @@ const Dashboard = ({ role }: DashboardProps) => {
                       <p className="text-sm font-medium text-gray-500">
                         Active Agents
                       </p>
-                      <h3 className="text-2xl font-bold">342</h3>
+                      <h3 className="text-2xl font-bold">{activeAgents}</h3>
                     </div>
                     <Users className="w-5 h-5 text-primary-600" />
                   </div>

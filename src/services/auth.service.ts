@@ -12,6 +12,7 @@ export interface JwtPayload {
 }
 
 interface ExtendedJwtPayload extends JwtPayload {
+  contactNo: any;
   role?: string;
 }
 

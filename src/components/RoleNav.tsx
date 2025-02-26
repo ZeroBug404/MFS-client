@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
@@ -13,6 +12,7 @@ import {
   Activity,
   Settings,
   UserCog,
+  LogOut,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -30,57 +30,67 @@ interface NavItem {
   label: string;
   path: string;
   roles: Role[];
+  onClick?: () => void; // Add onClick handler for custom actions like logout
 }
 
-const navItems: NavItem[] = [
-  {
-    icon: Home,
-    label: "Dashboard",
-    path: "/dashboard",
-    roles: ["user", "agent", "admin"],
-  },
-  { icon: Send, label: "Send Money", path: "/send", roles: ["user"] },
-  {
-    icon: DollarSign,
-    label: "Cash Actions",
-    path: "/cash",
-    roles: ["user", "agent"],
-  },
-  {
-    icon: Bell,
-    label: "Notifications",
-    path: "/notifications",
-    roles: ["user", "agent", "admin"],
-  },
-  { icon: Users, label: "User Management", path: "/users", roles: ["admin"] },
-  {
-    icon: Activity,
-    label: "System Metrics",
-    path: "/metrics",
-    roles: ["admin"],
-  },
-  {
-    icon: Settings,
-    label: "Settings",
-    path: "/settings",
-    roles: ["user", "agent", "admin"],
-  },
-];
-
-interface Props {
-  role: Role;
-}
-
-const RoleNav = ({ role }: Props) => {
+const RoleNav = ({ role }: { role: Role }) => {
   const [isOpen, setIsOpen] = useState(false);
   const navigate = useNavigate();
   const { role: urlRole } = useParams();
+
+  // Logout function
+  const handleLogout = () => {
+    localStorage.removeItem("accessToken"); // Remove access token
+    navigate("/login"); // Navigate to login page
+  };
+
+  const navItems: NavItem[] = [
+    {
+      icon: Home,
+      label: "Dashboard",
+      path: "/dashboard",
+      roles: ["user", "agent", "admin"],
+    },
+    { icon: Send, label: "Send Money", path: "/send", roles: ["user"] },
+    {
+      icon: DollarSign,
+      label: "Cash Actions",
+      path: "/cash",
+      roles: ["user", "agent"],
+    },
+    {
+      icon: Bell,
+      label: "Notifications",
+      path: "/notifications",
+      roles: ["user", "agent", "admin"],
+    },
+    { icon: Users, label: "User Management", path: "/users", roles: ["admin"] },
+    {
+      icon: Activity,
+      label: "System Metrics",
+      path: "/metrics",
+      roles: ["admin"],
+    },
+    {
+      icon: Settings,
+      label: "Settings",
+      path: "/settings",
+      roles: ["user", "agent", "admin"],
+    },
+    {
+      icon: LogOut,
+      label: "Log out",
+      path: "/login", // Path is not used for logout, but kept for consistency
+      roles: ["user", "agent", "admin"],
+      onClick: handleLogout, // Add onClick handler for logout
+    },
+  ];
 
   const filteredItems = navItems.filter((item) => item.roles.includes(role));
 
   const handleRoleChange = (newRole: Role) => {
     const currentPath = window.location.pathname;
-    const basePath = currentPath.split('/')[1];
+    const basePath = currentPath.split("/")[1];
     navigate(`/${basePath}/${newRole}`);
   };
 
@@ -106,38 +116,23 @@ const RoleNav = ({ role }: Props) => {
               <p className="text-sm text-gray-500 capitalize">{role}</p>
             </div>
           </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon">
-                <UserCog className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuItem onClick={() => handleRoleChange("user")}>
-                Switch to User
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleRoleChange("agent")}>
-                Switch to Agent
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleRoleChange("admin")}>
-                Switch to Admin
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          
         </div>
 
         <nav className="space-y-2">
           {filteredItems.map((item) => {
-            const itemPath = `${item.path}${item.roles.includes(role) ? `/${role}` : ''}`;
+            const itemPath = `${item.path}${
+              item.roles.includes(role) ? `/${role}` : ""
+            }`;
             return (
-              <Link
+              <div
                 key={item.path}
-                to={itemPath}
-                className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-700 hover:bg-primary-50 hover:text-primary-600 transition-all duration-200"
+                onClick={item.onClick} // Handle onClick for logout
+                className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-700 hover:bg-primary-50 hover:text-primary-600 transition-all duration-200 cursor-pointer"
               >
                 <item.icon className="w-5 h-5" />
                 <span>{item.label}</span>
-              </Link>
+              </div>
             );
           })}
         </nav>
@@ -172,39 +167,29 @@ const RoleNav = ({ role }: Props) => {
                       <p className="text-sm text-gray-500 capitalize">{role}</p>
                     </div>
                   </div>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon">
-                        <UserCog className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent>
-                      <DropdownMenuItem onClick={() => handleRoleChange("user")}>
-                        Switch to User
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleRoleChange("agent")}>
-                        Switch to Agent
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleRoleChange("admin")}>
-                        Switch to Admin
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
                 </div>
 
                 <nav className="space-y-2">
                   {filteredItems.map((item) => {
-                    const itemPath = `${item.path}${item.roles.includes(role) ? `/${role}` : ''}`;
+                    const itemPath = `${item.path}${
+                      item.roles.includes(role) ? `/${role}` : ""
+                    }`;
                     return (
-                      <Link
+                      <div
                         key={item.path}
-                        to={itemPath}
-                        onClick={() => setIsOpen(false)}
-                        className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-700 hover:bg-primary-50 hover:text-primary-600 transition-all duration-200"
+                        onClick={() => {
+                          if (item.onClick) {
+                            item.onClick(); // Handle logout
+                          } else {
+                            navigate(itemPath); // Navigate to other pages
+                          }
+                          setIsOpen(false); // Close mobile menu
+                        }}
+                        className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-700 hover:bg-primary-50 hover:text-primary-600 transition-all duration-200 cursor-pointer"
                       >
                         <item.icon className="w-5 h-5" />
                         <span>{item.label}</span>
-                      </Link>
+                      </div>
                     );
                   })}
                 </nav>

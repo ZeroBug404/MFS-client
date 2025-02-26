@@ -1,4 +1,3 @@
-
 import RoleNav from "@/components/RoleNav";
 import {
   Table,
@@ -16,9 +15,25 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Ban, CheckCircle2, MoreHorizontal, Search, Shield, User, UserCog, XCircle } from "lucide-react";
+import {
+  Ban,
+  CheckCircle2,
+  MoreHorizontal,
+  Search,
+  Shield,
+  User,
+  UserCog,
+  XCircle,
+} from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import {
+  useApproveAgentMutation,
+  useBlockUserMutation,
+  useGetAllUserQuery,
+} from "@/redux/api/userApi";
+import { getUserInfo } from "@/services/auth.service";
+import toast from "react-hot-toast";
 
 // Mock data - replace with actual data later
 const mockUsers = [
@@ -42,20 +57,76 @@ const mockUsers = [
 ];
 
 const UserManagement = () => {
+  interface User {
+    _id: string;
+    phoneNo: string;
+    role: string;
+    isApproved: boolean;
+    name: string;
+    phone: string;
+    type: string;
+    isActive: boolean;
+    updatedAt: string;
+  }
+
+  interface UsersData {
+    data: User[];
+  }
+
+  interface UserInfo {
+    contactNo: string;
+  }
+
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState<"all" | "pending">("all");
 
+  const [approveAgent] = useApproveAgentMutation();
+
+  const [blockUser] = useBlockUserMutation();
+
+  const userInfo: UserInfo | string = getUserInfo();
+
+  const { data: usersData }: { data?: UsersData } = useGetAllUserQuery({});
+
+  // console.log(usersData?.data);
+
   // Filter users based on search query and active tab
-  const filteredUsers = mockUsers.filter((user) => {
+  const filteredUsers = usersData?.data?.filter((user) => {
     const matchesSearch =
       user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.phone.includes(searchQuery);
-    
+      user.phoneNo.includes(searchQuery);
+
     if (activeTab === "pending") {
-      return matchesSearch && user.status === "pending";
+      return matchesSearch && user.isApproved === false;
     }
     return matchesSearch;
   });
+
+  const isApproveAgent = async (id: string) => {
+    const res = await approveAgent(id);
+    if (res.data.data.success) {
+      toast.success("Agent approved successfully");
+    } else {
+      toast.error("Failed to approve agent");
+    }
+    console.log(res);
+  };
+
+  const isBlockUser = async (id: string) => {
+    const res = await blockUser(id);
+    if (res.data.data.success) {
+      toast.success("User blocked successfully");
+    } else {
+      toast.error("Failed to block user");
+    }
+    console.log(res);
+  };
+
+  const totalUser = usersData?.data?.length - 1;
+
+  const activeAgents = usersData?.data?.filter(
+    (user: User) => user.role === "agent" && user?.isApproved
+  ).length;
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-primary-50 to-primary-100">
@@ -65,10 +136,14 @@ const UserManagement = () => {
           {/* Header Section */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">User Management</h1>
-              <p className="mt-1 text-gray-600">Manage users and approve agent requests</p>
+              <h1 className="text-2xl font-bold text-gray-900">
+                User Management
+              </h1>
+              <p className="mt-1 text-gray-600">
+                Manage users and approve agent requests
+              </p>
             </div>
-            
+
             {/* Quick Stats */}
             <div className="flex gap-4">
               <div className="bg-white/80 backdrop-blur-lg rounded-lg p-4 shadow-sm">
@@ -76,14 +151,18 @@ const UserManagement = () => {
                   <User className="w-5 h-5" />
                   <span className="text-sm font-medium">Total Users</span>
                 </div>
-                <p className="text-2xl font-bold text-gray-900 mt-1">1,234</p>
+                <p className="text-2xl font-bold text-gray-900 mt-1">
+                  {totalUser}
+                </p>
               </div>
               <div className="bg-white/80 backdrop-blur-lg rounded-lg p-4 shadow-sm">
                 <div className="flex items-center gap-2 text-secondary-600">
                   <Shield className="w-5 h-5" />
                   <span className="text-sm font-medium">Active Agents</span>
                 </div>
-                <p className="text-2xl font-bold text-gray-900 mt-1">56</p>
+                <p className="text-2xl font-bold text-gray-900 mt-1">
+                  {activeAgents}
+                </p>
               </div>
             </div>
           </div>
@@ -136,25 +215,25 @@ const UserManagement = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredUsers.map((user) => (
-                  <TableRow key={user.id}>
+                {filteredUsers?.map((user) => (
+                  <TableRow key={user._id}>
                     <TableCell className="font-medium">{user.name}</TableCell>
-                    <TableCell>{user.phone}</TableCell>
+                    <TableCell>{user.phoneNo}</TableCell>
                     <TableCell>
                       <span
                         className={cn(
                           "inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium",
-                          user.type === "agent"
+                          user.role === "agent"
                             ? "bg-primary-50 text-primary-700"
                             : "bg-gray-100 text-gray-700"
                         )}
                       >
-                        {user.type === "agent" ? (
+                        {user.role === "agent" ? (
                           <Shield className="w-3 h-3" />
                         ) : (
                           <User className="w-3 h-3" />
                         )}
-                        {user.type}
+                        {user.role}
                       </span>
                     </TableCell>
                     <TableCell>
@@ -163,46 +242,59 @@ const UserManagement = () => {
                           "inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium",
                           {
                             "bg-green-50 text-green-700":
-                              user.status === "active",
+                              user.isApproved === true,
                             "bg-yellow-50 text-yellow-700":
-                              user.status === "pending",
-                            "bg-red-50 text-red-700":
-                              user.status === "blocked",
+                              user.isApproved === false,
+                            "bg-red-50 text-red-700": user.isActive === false,
                           }
                         )}
                       >
-                        {user.status}
+                        {user.isApproved === true
+                          ? // <CheckCircle2 className="w-3 h-3" />
+                            "Approved"
+                          : user.isActive === false
+                          ? // <Ban className="w-3 h-3" />
+                            "Blocked"
+                          : // <XCircle className="w-3 h-3" />
+                            "Pending"}
                       </span>
                     </TableCell>
                     <TableCell>
-                      {new Date(user.lastActive).toLocaleDateString()}
+                      {new Date(user.updatedAt).toLocaleDateString()}
                     </TableCell>
                     <TableCell>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            className="h-8 w-8 p-0"
-                          >
+                          <Button variant="ghost" className="h-8 w-8 p-0">
                             <MoreHorizontal className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          {user.status === "pending" ? (
+                          {user.isApproved === false ? (
                             <>
-                              <DropdownMenuItem className="text-green-600">
+                              <DropdownMenuItem
+                                className="text-green-600"
+                                onClick={() => {
+                                  isApproveAgent(user._id);
+                                }}
+                              >
                                 <CheckCircle2 className="w-4 h-4 mr-2" />
                                 Approve
                               </DropdownMenuItem>
-                              <DropdownMenuItem className="text-red-600">
+                              {/* <DropdownMenuItem className="text-red-600">
                                 <XCircle className="w-4 h-4 mr-2" />
                                 Reject
-                              </DropdownMenuItem>
+                              </DropdownMenuItem> */}
                             </>
                           ) : (
-                            <DropdownMenuItem className="text-red-600">
+                            <DropdownMenuItem
+                              className="text-red-600"
+                              onClick={() => {
+                                isBlockUser(user._id);
+                              }}
+                            >
                               <Ban className="w-4 h-4 mr-2" />
-                              {user.status === "blocked" ? "Unblock" : "Block"}
+                              {user.isActive === false ? "Unblock" : "Block"}
                             </DropdownMenuItem>
                           )}
                         </DropdownMenuContent>

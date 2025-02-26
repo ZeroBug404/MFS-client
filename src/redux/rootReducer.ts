@@ -2,7 +2,6 @@ import { baseApi } from "./api/baseApi";
 
 
 export const reducer = {
-  //   category: courseReducer,
-  //   trees: treeReducer,
+    // user: userReducer,
   [baseApi.reducerPath]: baseApi.reducer,
 };
