@@ -34,6 +34,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { useEffect, useState } from "react";
+import toast from "react-hot-toast";
 import {
   Area,
   AreaChart,
@@ -45,7 +46,6 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import toast from "react-hot-toast";
 
 const transactionHistory = [
   { time: "00:00", amount: 1200 },
@@ -93,10 +93,11 @@ const Dashboard = ({ role }: DashboardProps) => {
   const { toast: systemToast } = useToast();
   const [loading, setLoading] = useState(false);
 
-  const [cashOut] = useCashOutMutation();
-  const [cashIn] = useCashInMutation();
-  const [sendMoney] = useSendMoneyMutation();
-  const [agentCashIn] = useAgentCashInMutation();
+  const [cashOut, { isLoading: isCashOutLoading }] = useCashOutMutation();
+  const [cashIn, { isLoading: isCashInLoading }] = useCashInMutation();
+  const [sendMoney, { isLoading: isSendMoneyLoading }] = useSendMoneyMutation();
+  const [agentCashIn, { isLoading: isAgentCashInLoading }] =
+    useAgentCashInMutation();
 
   const userInfo: UserInfo | string = getUserInfo();
 
@@ -107,8 +108,6 @@ const Dashboard = ({ role }: DashboardProps) => {
       typeof userInfo !== "string" && user.phoneNo === userInfo?.contactNo
   );
 
-  // console.log(user);
-
   const query = {
     userId: user?._id,
     role: user?.role,
@@ -117,77 +116,195 @@ const Dashboard = ({ role }: DashboardProps) => {
   const { data: userBalance, isLoading } = useGetBalanceQuery(query);
 
   const handleSendMoney = async () => {
+    if (!amount || !recipient) {
+      return toast.error("Please fill in all fields");
+    }
+
+    if (Number(amount) <= 0) {
+      return toast.error("Amount must be greater than 0");
+    }
+
     if (user?.balance < Number(amount)) {
       return toast.error("Insufficient balance");
     }
 
-    const data = {
-      senderId: user?._id,
-      recipientPhone: recipient,
-      amount: Number(amount),
-    };
+    try {
+      const data = {
+        senderId: user?._id,
+        recipientPhone: recipient,
+        amount: Number(amount),
+      };
 
-    const res = await sendMoney(data).unwrap();
+      const res = await sendMoney(data).unwrap();
 
-    console.log(res);
-
-    if (res?.data?.data?.success) {
-      setAmount("");
-      setRecipient("");
-      toast.success(`Successfully sent $${amount} to ${recipient}`);
-    } else {
-      toast.error("Send money failed");
+      if (res?.data?.success || res?.success) {
+        setAmount("");
+        setRecipient("");
+        toast.success(`Successfully sent ${amount} Taka to ${recipient}`);
+      } else {
+        toast.error("Send money failed");
+      }
+    } catch (error: unknown) {
+      console.error("Send money error:", error);
+      const errorMessage =
+        (error as { data?: { message?: string } })?.data?.message ||
+        (error as { data?: { errorSources?: Array<{ message?: string }> } })
+          ?.data?.errorSources?.[0]?.message ||
+        (error as { message?: string })?.message ||
+        "Failed to send money. Please try again.";
+      toast.error(errorMessage);
     }
   };
 
   const handleCashOut = async () => {
+    if (!amount || !recipient) {
+      return toast.error("Please fill in all fields");
+    }
+
+    if (Number(amount) <= 0) {
+      return toast.error("Amount must be greater than 0");
+    }
+
     if (user?.balance < Number(amount)) {
       return toast.error("Insufficient balance");
     }
 
-    const data = {
-      userId: user?._id,
-      agentPhone: recipient,
-      amount: Number(amount),
-    };
+    try {
+      const data = {
+        userId: user?._id,
+        agentPhone: recipient,
+        amount: Number(amount),
+      };
 
-    const res = await cashOut(data);
+      const res = await cashOut(data).unwrap();
 
-    if (res?.data?.data?.fee) {
-      setAmount("");
-      setRecipient("");
-      toast.success("Cash out successful");
-    } else {
-      toast.error("Cash out failed");
+      if (res?.data?.fee || res?.success) {
+        setAmount("");
+        setRecipient("");
+        toast.success("Cash out successful");
+      } else {
+        toast.error("Cash out failed");
+      }
+    } catch (error: unknown) {
+      console.error("Cash out error:", error);
+      const errorMessage =
+        (error as { data?: { message?: string } })?.data?.message ||
+        (error as { data?: { errorSources?: Array<{ message?: string }> } })
+          ?.data?.errorSources?.[0]?.message ||
+        (error as { message?: string })?.message ||
+        "Failed to process cash out. Please try again.";
+      toast.error(errorMessage);
     }
   };
 
   const handleCashIn = async () => {
-    if (user?.balance < Number(amount)) {
-      return toast.error("Insufficient balance");
+    if (!amount || !recipient) {
+      return toast.error("Please fill in all fields");
     }
 
-    const data = {
-      agentId: user?._id,
-      recipientPhone: recipient,
-      amount: Number(amount),
-    };
-    await cashIn(data).unwrap();
+    if (Number(amount) <= 0) {
+      return toast.error("Amount must be greater than 0");
+    }
 
-    toast.success("Cash in successful");
+    // Check if user is an agent and approved
+    if (user?.role !== "agent") {
+      return toast.error("Only approved agents can perform cash-in operations");
+    }
+
+    if (user?.isApproved === false) {
+      return toast.error(
+        "Your agent account is pending approval. Please wait for admin approval."
+      );
+    }
+
+    if (user?.isActive === false) {
+      return toast.error(
+        "Your account has been blocked. Please contact support."
+      );
+    }
+
+    // Agent needs to have enough balance to cash in to users
+    if (!user?.balance || user.balance < Number(amount)) {
+      return toast.error(
+        "Insufficient balance. You need enough balance to perform cash-in."
+      );
+    }
+
+    try {
+      const data = {
+        agentId: user?._id,
+        recipientPhone: recipient,
+        amount: Number(amount),
+      };
+
+      const res = await cashIn(data).unwrap();
+
+      if (res?.success || res?.data) {
+        setAmount("");
+        setRecipient("");
+        toast.success(`Successfully cashed in ${amount} Taka to ${recipient}`);
+      } else {
+        toast.error("Cash in failed");
+      }
+    } catch (error: unknown) {
+      console.error("Cash in error:", error);
+      const errorMessage =
+        (error as { data?: { message?: string } })?.data?.message ||
+        (error as { data?: { errorSources?: Array<{ message?: string }> } })
+          ?.data?.errorSources?.[0]?.message ||
+        (error as { message?: string })?.message ||
+        "Failed to process cash in. Please try again.";
+
+      // Provide more specific error messages
+      if ((error as { status?: number })?.status === 403) {
+        toast.error(
+          "You don't have permission to perform this action. Make sure you're an approved agent."
+        );
+      } else {
+        toast.error(errorMessage);
+      }
+    }
   };
 
   const handleAdminCashIn = async () => {
-    const data = {
-      adminId: user?._id,
-      recipientPhone: recipient,
-      amount: Number(amount),
-    };
-    const res = await agentCashIn(data).unwrap();
+    if (!amount || !recipient) {
+      return toast.error("Please fill in all fields");
+    }
 
-    console.log(res);
+    if (Number(amount) <= 0) {
+      return toast.error("Amount must be greater than 0");
+    }
 
-    toast.success("Cash in successful");
+    if (user?.role !== "admin") {
+      return toast.error("Only admins can perform this operation");
+    }
+
+    try {
+      const data = {
+        adminId: user?._id,
+        recipientPhone: recipient,
+        amount: Number(amount),
+      };
+
+      const res = await agentCashIn(data).unwrap();
+
+      if (res?.success || res?.data) {
+        setAmount("");
+        setRecipient("");
+        toast.success(`Successfully cashed in ${amount} Taka to ${recipient}`);
+      } else {
+        toast.error("Cash in failed");
+      }
+    } catch (error: unknown) {
+      console.error("Admin cash in error:", error);
+      const errorMessage =
+        (error as { data?: { message?: string } })?.data?.message ||
+        (error as { data?: { errorSources?: Array<{ message?: string }> } })
+          ?.data?.errorSources?.[0]?.message ||
+        (error as { message?: string })?.message ||
+        "Failed to process cash in. Please try again.";
+      toast.error(errorMessage);
+    }
   };
 
   const totalUser = usersData?.data?.length - 1;
@@ -212,6 +329,7 @@ const Dashboard = ({ role }: DashboardProps) => {
   }, [isBalanceVisible]);
 
   const handleClick = () => {
+    console.log(user?.balance);
     setIsBalanceVisible(true);
   };
 
@@ -227,7 +345,7 @@ const Dashboard = ({ role }: DashboardProps) => {
             <div className="flex justify-between">
               <div className="space-y-1">
                 <h1 className="text-2xl font-bold text-gray-900">
-                  Welcome back, Admin!
+                  Welcome back, {user?.name || "Admin"}!
                 </h1>
                 <p className="text-gray-600">
                   Here's what's happening with your account today.
@@ -256,6 +374,7 @@ const Dashboard = ({ role }: DashboardProps) => {
                           placeholder="Enter recipient no"
                           value={recipient}
                           onChange={(e) => setRecipient(e.target.value)}
+                          disabled={isAgentCashInLoading}
                         />
                       </div>
                       <div className="space-y-2">
@@ -266,11 +385,21 @@ const Dashboard = ({ role }: DashboardProps) => {
                           placeholder="Enter amount"
                           value={amount}
                           onChange={(e) => setAmount(e.target.value)}
+                          disabled={isAgentCashInLoading}
                         />
                       </div>
                     </div>
                     <DialogFooter>
-                      <Button onClick={handleAdminCashIn}>Cash In</Button>
+                      <Button
+                        onClick={handleAdminCashIn}
+                        disabled={isAgentCashInLoading}
+                        className="flex items-center gap-2"
+                      >
+                        {isAgentCashInLoading && (
+                          <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
+                        )}
+                        {isAgentCashInLoading ? "Processing..." : "Cash In"}
+                      </Button>
                     </DialogFooter>
                   </DialogContent>
                 </Dialog>
@@ -408,7 +537,7 @@ const Dashboard = ({ role }: DashboardProps) => {
             <div className="flex justify-between">
               <div className="space-y-1">
                 <h1 className="text-2xl font-bold text-gray-900">
-                  Welcome back, Agent!
+                  Welcome back, {user?.name || "Agent"}!
                 </h1>
                 <p className="text-gray-600">
                   Here's what's happening with your account today.
@@ -437,6 +566,7 @@ const Dashboard = ({ role }: DashboardProps) => {
                           placeholder="Enter recipient no"
                           value={recipient}
                           onChange={(e) => setRecipient(e.target.value)}
+                          disabled={isCashInLoading}
                         />
                       </div>
                       <div className="space-y-2">
@@ -447,11 +577,21 @@ const Dashboard = ({ role }: DashboardProps) => {
                           placeholder="Enter amount"
                           value={amount}
                           onChange={(e) => setAmount(e.target.value)}
+                          disabled={isCashInLoading}
                         />
                       </div>
                     </div>
                     <DialogFooter>
-                      <Button onClick={handleCashIn}>Cash In</Button>
+                      <Button
+                        onClick={handleCashIn}
+                        disabled={isCashInLoading}
+                        className="flex items-center gap-2"
+                      >
+                        {isCashInLoading && (
+                          <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
+                        )}
+                        {isCashInLoading ? "Processing..." : "Cash In"}
+                      </Button>
                     </DialogFooter>
                   </DialogContent>
                 </Dialog>
@@ -481,6 +621,7 @@ const Dashboard = ({ role }: DashboardProps) => {
                           placeholder="Enter recipient no"
                           value={recipient}
                           onChange={(e) => setRecipient(e.target.value)}
+                          disabled={isCashOutLoading}
                         />
                       </div>
                       <div className="space-y-2">
@@ -491,11 +632,21 @@ const Dashboard = ({ role }: DashboardProps) => {
                           placeholder="Enter amount"
                           value={amount}
                           onChange={(e) => setAmount(e.target.value)}
+                          disabled={isCashOutLoading}
                         />
                       </div>
                     </div>
                     <DialogFooter>
-                      <Button onClick={handleCashOut}>Cash Out</Button>
+                      <Button 
+                        onClick={handleCashOut}
+                        disabled={isCashOutLoading}
+                        className="flex items-center gap-2"
+                      >
+                        {isCashOutLoading && (
+                          <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
+                        )}
+                        {isCashOutLoading ? "Processing..." : "Cash Out"}
+                      </Button>
                     </DialogFooter>
                   </DialogContent>
                 </Dialog> */}
@@ -662,7 +813,7 @@ const Dashboard = ({ role }: DashboardProps) => {
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div className="space-y-1">
                 <h1 className="text-2xl font-bold text-gray-900">
-                  Welcome back, User!
+                  Welcome back, {user?.name || "User"}!
                 </h1>
                 <p className="text-gray-600">
                   Here's what's happening with your account today.
@@ -691,6 +842,7 @@ const Dashboard = ({ role }: DashboardProps) => {
                           placeholder="Enter recipient no"
                           value={recipient}
                           onChange={(e) => setRecipient(e.target.value)}
+                          disabled={isSendMoneyLoading}
                         />
                       </div>
                       <div className="space-y-2">
@@ -701,11 +853,21 @@ const Dashboard = ({ role }: DashboardProps) => {
                           placeholder="Enter amount"
                           value={amount}
                           onChange={(e) => setAmount(e.target.value)}
+                          disabled={isSendMoneyLoading}
                         />
                       </div>
                     </div>
                     <DialogFooter>
-                      <Button onClick={handleSendMoney}>Send Money</Button>
+                      <Button
+                        onClick={handleSendMoney}
+                        disabled={isSendMoneyLoading}
+                        className="flex items-center gap-2"
+                      >
+                        {isSendMoneyLoading && (
+                          <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
+                        )}
+                        {isSendMoneyLoading ? "Sending..." : "Send Money"}
+                      </Button>
                     </DialogFooter>
                   </DialogContent>
                 </Dialog>
@@ -735,6 +897,7 @@ const Dashboard = ({ role }: DashboardProps) => {
                           placeholder="Enter recipient no"
                           value={recipient}
                           onChange={(e) => setRecipient(e.target.value)}
+                          disabled={isCashOutLoading}
                         />
                       </div>
                       <div className="space-y-2">
@@ -745,11 +908,21 @@ const Dashboard = ({ role }: DashboardProps) => {
                           placeholder="Enter amount"
                           value={amount}
                           onChange={(e) => setAmount(e.target.value)}
+                          disabled={isCashOutLoading}
                         />
                       </div>
                     </div>
                     <DialogFooter>
-                      <Button onClick={handleCashOut}>Cash Out</Button>
+                      <Button
+                        onClick={handleCashOut}
+                        disabled={isCashOutLoading}
+                        className="flex items-center gap-2"
+                      >
+                        {isCashOutLoading && (
+                          <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
+                        )}
+                        {isCashOutLoading ? "Processing..." : "Cash Out"}
+                      </Button>
                     </DialogFooter>
                   </DialogContent>
                 </Dialog>
@@ -769,9 +942,10 @@ const Dashboard = ({ role }: DashboardProps) => {
                         Total Balance
                       </p>
                       <h3
-                        className={`text-2xl font-bold ${
-                          isBalanceVisible ? "" : "blur"
-                        }`}
+                        className={`text-2xl font-bold 
+                          {/*${isBalanceVisible ? "" : "blur"}*/}
+                          
+                        `}
                       >
                         {formattedBalance} Taka
                       </h3>

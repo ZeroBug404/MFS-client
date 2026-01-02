@@ -1,4 +1,12 @@
 import RoleNav from "@/components/RoleNav";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -7,14 +15,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+  useApproveAgentMutation,
+  useBlockUserMutation,
+  useGetAllUserQuery,
+} from "@/redux/api/userApi";
 import {
   Ban,
   CheckCircle2,
@@ -23,16 +29,8 @@ import {
   Shield,
   User,
   UserCog,
-  XCircle,
 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { cn } from "@/lib/utils";
-import {
-  useApproveAgentMutation,
-  useBlockUserMutation,
-  useGetAllUserQuery,
-} from "@/redux/api/userApi";
-import { getUserInfo } from "@/services/auth.service";
 import toast from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
 
@@ -109,15 +107,33 @@ const UserManagement = () => {
   });
 
   const isApproveAgent = async (id: string) => {
-    await approveAgent(id);
-
-    toast.success("Agent approved successfully");
+    try {
+      await approveAgent(id).unwrap();
+      toast.success("Agent approved successfully");
+      refetch();
+    } catch (error: unknown) {
+      console.error("Approve agent error:", error);
+      const errorMessage =
+        (error as { data?: { message?: string } })?.data?.message ||
+        (error as { message?: string })?.message ||
+        "Failed to approve agent. Please try again.";
+      toast.error(errorMessage);
+    }
   };
 
   const isBlockUser = async (id: string) => {
-    await blockUser(id);
-
-    toast.success("Status changed successfully");
+    try {
+      await blockUser(id).unwrap();
+      toast.success("Status changed successfully");
+      refetch();
+    } catch (error: unknown) {
+      console.error("Block user error:", error);
+      const errorMessage =
+        (error as { data?: { message?: string } })?.data?.message ||
+        (error as { message?: string })?.message ||
+        "Failed to change user status. Please try again.";
+      toast.error(errorMessage);
+    }
   };
 
   const totalUser = usersData?.data?.length - 1;
@@ -127,7 +143,7 @@ const UserManagement = () => {
   ).length;
 
   const handleUserClick = (userId) => {
-    navigate(`/users/notifications/${userId}`); 
+    navigate(`/users/notifications/${userId}`);
   };
 
   return (

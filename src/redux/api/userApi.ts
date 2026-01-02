@@ -1,33 +1,18 @@
-import { getFromLocalStorage } from "../../helpers/utils/saveData";
 import { baseApi } from "./baseApi";
-
-const token = getFromLocalStorage("accessToken");
-const headers = {
-  Authorization: `${token}`,
-};
 
 export const userApi = baseApi.injectEndpoints({
   endpoints: (build) => ({
-    // createLesson: build.mutation({
-    //   query: (lessonData) => ({
-    //     url: `lessons/create`,
-    //     method: 'POST',
-    //     body: lessonData,
-    //     headers: headers,
-    //   }),
-    // }),
     getAllUser: build.query({
       query: () => ({
         url: `users/manage`,
         method: "GET",
-        // headers: headers,
       }),
+      providesTags: ["Users"],
     }),
     getBalance: build.query({
       query: (query) => ({
         url: `users/balance`,
         method: "GET",
-        headers: headers,
         params: query,
       }),
     }),
@@ -35,21 +20,42 @@ export const userApi = baseApi.injectEndpoints({
       query: (agentId) => ({
         url: `users/admin/agents/${agentId}/approve`,
         method: "PATCH",
-        headers: headers,
       }),
+      invalidatesTags: ["Users"],
     }),
     blockUser: build.mutation({
       query: (userId) => ({
         url: `users/admin/${userId}/block`,
         method: "PATCH",
-        headers: headers,
       }),
+      invalidatesTags: ["Users"],
     }),
     transactionHistory: build.query({
       query: () => ({
         url: `transactions/admin/transactions`,
         method: "GET",
-        headers: headers,
+      }),
+    }),
+    getMyProfile: build.query({
+      query: () => ({
+        url: `users/profile/me`,
+        method: "GET",
+      }),
+      providesTags: ["Profile"],
+    }),
+    updateMyProfile: build.mutation({
+      query: (data) => ({
+        url: `users/profile/me`,
+        method: "PATCH",
+        body: data,
+      }),
+      invalidatesTags: ["Users", "Profile"],
+    }),
+    changePin: build.mutation({
+      query: (data) => ({
+        url: `users/profile/change-pin`,
+        method: "PATCH",
+        body: data,
       }),
     }),
   }),
@@ -61,4 +67,7 @@ export const {
   useApproveAgentMutation,
   useBlockUserMutation,
   useTransactionHistoryQuery,
+  useGetMyProfileQuery,
+  useUpdateMyProfileMutation,
+  useChangePinMutation,
 } = userApi;

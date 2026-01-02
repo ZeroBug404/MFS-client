@@ -1,6 +1,5 @@
 import { Notification, Transaction } from "@/interface/interfsces";
 import { clsx, type ClassValue } from "clsx";
-import { useState } from "react";
 import { twMerge } from "tailwind-merge";
 
 export function cn(...inputs: ClassValue[]) {
@@ -29,15 +28,107 @@ const getTimeAgo = (dateString: string): string => {
 
 // Transform MongoDB data to Notification format
 export const transformToNotifications = (
-  transactions: Transaction[]
+  transactions: Transaction[],
+  currentUserId?: string,
+  isAdmin: boolean = false
 ): Notification[] => {
+  if (!transactions || transactions.length === 0) {
+    return [];
+  }
 
-  return transactions?.map((transaction, index) => ({
-    id: index + 1,
-    type: transaction?.type === "cash-out" ? "success" : "info", // Adjust based on transaction type
-    title: "Transaction Successful",
-    message: `You transferred ${transaction.amount} Taka to ${transaction.to.name}.`,
-    time: getTimeAgo(transaction.createdAt),
-    read: false,
-  }));
+  return transactions.map((transaction, index) => {
+    const senderId =
+      typeof transaction.from === "object" && "_id" in transaction.from
+        ? transaction.from._id
+        : typeof transaction.from === "string"
+        ? transaction.from
+        : null;
+    const receiverId =
+      typeof transaction.to === "object" && "_id" in transaction.to
+        ? transaction.to._id
+        : typeof transaction.to === "string"
+        ? transaction.to
+        : null;
+
+    const isSender = currentUserId && senderId === currentUserId;
+    const isReceiver = currentUserId && receiverId === currentUserId;
+
+    let title = "";
+    let message = "";
+    let type: "success" | "error" | "warning" | "info" = "info";
+
+    const senderName =
+      typeof transaction.from === "object" && "name" in transaction.from
+        ? transaction.from.name
+        : "Unknown";
+    const receiverName =
+      typeof transaction.to === "object" && "name" in transaction.to
+        ? transaction.to.name
+        : "Unknown";
+
+    if (isAdmin) {
+      // Admin view: show all transactions from system perspective
+      if (transaction.type === "send") {
+        title = "Money Transfer";
+        message = `${senderName} sent ${transaction.amount} Taka to ${receiverName}`;
+        if (transaction.fee && transaction.fee > 0) {
+          message += ` (Fee: ${transaction.fee} Taka)`;
+        }
+        type = "info";
+      } else if (transaction.type === "cash-in") {
+        title = "Cash In";
+        message = `${senderName} cashed in ${transaction.amount} Taka to ${receiverName}`;
+        type = "success";
+      } else if (transaction.type === "cash-out") {
+        title = "Cash Out";
+        message = `${senderName} cashed out ${transaction.amount} Taka via ${receiverName}`;
+        if (transaction.fee && transaction.fee > 0) {
+          message += ` (Fee: ${transaction.fee} Taka)`;
+        }
+        type = "warning";
+      } else {
+        title = "Transaction";
+        message = `${senderName} → ${receiverName}: ${transaction.amount} Taka`;
+        type = "info";
+      }
+    } else {
+      // User/Agent view: personalized messages
+      if (isSender) {
+        title = "Money Sent";
+        message = `You sent ${transaction.amount} Taka to ${receiverName}`;
+        if (transaction.fee && transaction.fee > 0) {
+          message += ` (Fee: ${transaction.fee} Taka)`;
+        }
+        type = "success";
+      } else if (isReceiver) {
+        title = "Money Received";
+        message = `You received ${transaction.amount} Taka from ${senderName}`;
+        type = "success";
+      } else {
+        title = "Transaction";
+        message = `Transaction of ${transaction.amount} Taka`;
+        type = "info";
+      }
+
+      // Adjust type based on transaction type
+      if (transaction.type === "cash-out") {
+        type = "warning";
+        title = "Cash Out";
+      } else if (transaction.type === "cash-in") {
+        type = "success";
+        title = isReceiver ? "Cash In Received" : "Cash In Processed";
+      } else if (transaction.type === "send") {
+        type = isSender ? "success" : "info";
+      }
+    }
+
+    return {
+      id: index + 1,
+      type,
+      title,
+      message: message + ".",
+      time: getTimeAgo(transaction.createdAt),
+      read: false,
+    };
+  });
 };

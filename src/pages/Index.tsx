@@ -1,22 +1,22 @@
-import { useState } from "react";
-import { motion } from "framer-motion";
-import { Eye, EyeOff, Phone, User, Lock, Mail } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { decodedToken } from "@/helpers/utils/jwt";
 import {
   useUserLoginMutation,
   useUserRegisterMutation,
 } from "@/redux/api/authApi";
+import { storeUserInfo } from "@/services/auth.service";
+import { motion } from "framer-motion";
 import { JwtPayload as DefaultJwtPayload } from "jwt-decode";
+import { Eye, EyeOff, Lock, Mail, Phone, User } from "lucide-react";
+import { useState } from "react";
 import toast from "react-hot-toast";
+import { Link, useNavigate } from "react-router-dom";
 
 interface JwtPayload extends DefaultJwtPayload {
   role?: string;
 }
-import { decodedToken } from "@/helpers/utils/jwt";
-import { storeUserInfo } from "@/services/auth.service";
 // import { toast } from "@/hooks/use-toast";
-import useValidation from "@/hooks/useValidation"; // Import the custom hook
 import loginLogo from "@/assets/image/E-Wallet-bro.png";
+import useValidation from "@/hooks/useValidation"; // Import the custom hook
 
 type AuthMode = "login" | "register";
 type AccountType = "user" | "agent";
@@ -26,10 +26,11 @@ const Index = () => {
   const [showPin, setShowPin] = useState(false);
   const [accountType, setAccountType] = useState<AccountType>("user");
 
-  const [userRegister] = useUserRegisterMutation();
-  const [userLogin] = useUserLoginMutation();
+  const [userRegister, { isLoading: isRegisterLoading }] =
+    useUserRegisterMutation();
+  const [userLogin, { isLoading: isLoginLoading }] = useUserLoginMutation();
   const navigate = useNavigate();
-  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [errorMessage, setErrorMessage] = useState<string>("");
 
   const {
     errors,
@@ -77,6 +78,7 @@ const Index = () => {
       // isNameValid &&
       // isEmailValid
     ) {
+      setErrorMessage("");
       try {
         const formData = new FormData(form);
         const formValues = Object.fromEntries(formData);
@@ -93,15 +95,10 @@ const Index = () => {
 
           const res = await userRegister(data).unwrap();
 
-          const responseToken =
-            "error" in res ? undefined : res.data?.accessToken;
-
-          if ("data" in res && res.data?.accessToken) {
-            setIsLoading(!isLoading);
-
+          if (res?.data?.accessToken) {
             toast.success("User registered successfully!");
 
-            const decodedData: JwtPayload = decodedToken(responseToken);
+            const decodedData: JwtPayload = decodedToken(res.data.accessToken);
 
             if (decodedData?.role === "user") {
               navigate("/dashboard/user");
@@ -111,11 +108,7 @@ const Index = () => {
               navigate("/dashboard/admin");
             }
 
-            storeUserInfo({ accessToken: res?.data?.accessToken });
-          } else {
-            setIsLoading(false);
-            // navigate("/login");
-            return toast.error("Error creating user!");
+            storeUserInfo({ accessToken: res.data.accessToken });
           }
         } else {
           const loginData = {
@@ -123,17 +116,12 @@ const Index = () => {
             pin: formValues.pin,
           };
 
-          const res = await userLogin(loginData);
+          const res = await userLogin(loginData).unwrap();
 
-          const responseToken =
-            "error" in res ? undefined : res.data?.data?.accessToken;
-
-          if ("data" in res && res.data?.data?.accessToken) {
-            setIsLoading(!isLoading);
-
+          if (res?.data?.accessToken) {
             toast.success("User logged in successfully!");
 
-            const decodedData: JwtPayload = decodedToken(responseToken);
+            const decodedData: JwtPayload = decodedToken(res.data.accessToken);
 
             if (decodedData?.role === "user") {
               navigate("/dashboard/user");
@@ -143,15 +131,30 @@ const Index = () => {
               navigate("/dashboard/admin");
             }
 
-            storeUserInfo({ accessToken: res?.data?.data?.accessToken });
-          } else {
-            setIsLoading(false);
-            // navigate("/login");
-            return toast.error("Wrong credential!");
+            storeUserInfo({ accessToken: res.data.accessToken });
           }
         }
-      } catch (error) {
-        console.log(error);
+      } catch (error: any) {
+        console.error("Auth error:", error);
+
+        // Extract error message from API response
+        let errorMsg = "An unexpected error occurred. Please try again.";
+
+        if (error?.data?.message) {
+          errorMsg = error.data.message;
+        } else if (error?.data?.errorSources?.[0]?.message) {
+          errorMsg = error.data.errorSources[0].message;
+        } else if (error?.message) {
+          errorMsg = error.message;
+        } else if (error?.status === "FETCH_ERROR") {
+          errorMsg =
+            "Network error. Please check your connection and try again.";
+        } else if (error?.status === "PARSING_ERROR") {
+          errorMsg = "Invalid response from server. Please try again.";
+        }
+
+        setErrorMessage(errorMsg);
+        toast.error(errorMsg);
       }
     }
   };
@@ -183,7 +186,10 @@ const Index = () => {
               {/* Auth Toggle */}
               <div className="flex gap-2 mb-6">
                 <button
-                  onClick={() => setAuthMode("login")}
+                  onClick={() => {
+                    setAuthMode("login");
+                    setErrorMessage("");
+                  }}
                   className={`flex-1 py-2 rounded-lg transition-all duration-200 ${
                     authMode === "login"
                       ? "bg-primary text-white"
@@ -193,7 +199,10 @@ const Index = () => {
                   Login
                 </button>
                 <button
-                  onClick={() => setAuthMode("register")}
+                  onClick={() => {
+                    setAuthMode("register");
+                    setErrorMessage("");
+                  }}
                   className={`flex-1 py-2 rounded-lg transition-all duration-200 ${
                     authMode === "register"
                       ? "bg-primary text-white"
@@ -215,10 +224,15 @@ const Index = () => {
                     <input
                       type="text"
                       name="phoneNo"
+                      disabled={isRegisterLoading || isLoginLoading}
                       className={`w-full px-4 py-2 rounded-lg border transition-all duration-200 pl-10 ${
                         errors.phone
                           ? "border-red-400 focus:ring-2 focus:ring-red-300 focus:border-transparent"
                           : "border-gray-300 focus:ring-2 focus:ring-primary-300 focus:border-transparent"
+                      } ${
+                        isRegisterLoading || isLoginLoading
+                          ? "opacity-60 cursor-not-allowed"
+                          : ""
                       }`}
                       placeholder="Enter phone number"
                       onChange={(e) => validatePhone(e.target.value)}
@@ -242,10 +256,15 @@ const Index = () => {
                         <input
                           type="text"
                           name="name"
+                          disabled={isRegisterLoading || isLoginLoading}
                           className={`w-full px-4 py-2 rounded-lg border transition-all duration-200 pl-10 ${
                             errors.name
                               ? "border-red-400 focus:ring-2 focus:ring-red-300 focus:border-transparent"
                               : "border-gray-300 focus:ring-2 focus:ring-primary-300 focus:border-transparent"
+                          } ${
+                            isRegisterLoading || isLoginLoading
+                              ? "opacity-60 cursor-not-allowed"
+                              : ""
                           }`}
                           placeholder="Enter your full name"
                           onChange={(e) => validateName(e.target.value)}
@@ -268,10 +287,15 @@ const Index = () => {
                         <input
                           type="email"
                           name="email"
+                          disabled={isRegisterLoading || isLoginLoading}
                           className={`w-full px-4 py-2 rounded-lg border transition-all duration-200 pl-10 ${
                             errors.email
                               ? "border-red-400 focus:ring-2 focus:ring-red-300 focus:border-transparent"
                               : "border-gray-300 focus:ring-2 focus:ring-primary-300 focus:border-transparent"
+                          } ${
+                            isRegisterLoading || isLoginLoading
+                              ? "opacity-60 cursor-not-allowed"
+                              : ""
                           }`}
                           placeholder="Enter your email"
                           onChange={(e) => validateEmail(e.target.value)}
@@ -297,10 +321,15 @@ const Index = () => {
                       type={showPin ? "text" : "password"}
                       name="pin"
                       maxLength={5}
+                      disabled={isRegisterLoading || isLoginLoading}
                       className={`w-full px-4 py-2 rounded-lg border transition-all duration-200 pl-10 ${
                         errors.pin
                           ? "border-red-400 focus:ring-2 focus:ring-red-300 focus:border-transparent"
                           : "border-gray-300 focus:ring-2 focus:ring-primary-300 focus:border-transparent"
+                      } ${
+                        isRegisterLoading || isLoginLoading
+                          ? "opacity-60 cursor-not-allowed"
+                          : ""
                       }`}
                       placeholder="Enter 5-digit PIN"
                       onChange={(e) => validatePin(e.target.value)}
@@ -336,10 +365,15 @@ const Index = () => {
                         <input
                           type="text"
                           name="nid"
+                          disabled={isRegisterLoading || isLoginLoading}
                           className={`w-full px-4 py-2 rounded-lg border transition-all duration-200 pl-10 ${
                             errors.nid
                               ? "border-red-400 focus:ring-2 focus:ring-red-300 focus:border-transparent"
                               : "border-gray-300 focus:ring-2 focus:ring-primary-300 focus:border-transparent"
+                          } ${
+                            isRegisterLoading || isLoginLoading
+                              ? "opacity-60 cursor-not-allowed"
+                              : ""
                           }`}
                           placeholder="Enter NID number"
                           onChange={(e) => validateNid(e.target.value)}
@@ -362,10 +396,15 @@ const Index = () => {
                       <select
                         name="accountType"
                         value={accountType}
+                        disabled={isRegisterLoading || isLoginLoading}
                         onChange={(e) =>
                           setAccountType(e.target.value as AccountType)
                         }
-                        className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary-300 focus:border-transparent transition-all duration-200 appearance-none bg-white"
+                        className={`w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary-300 focus:border-transparent transition-all duration-200 appearance-none bg-white ${
+                          isRegisterLoading || isLoginLoading
+                            ? "opacity-60 cursor-not-allowed"
+                            : ""
+                        }`}
                       >
                         <option value="user">User Account</option>
                         <option value="agent">Agent Account</option>
@@ -374,12 +413,33 @@ const Index = () => {
                   </>
                 )}
 
+                {/* Error Message Display */}
+                {errorMessage && (
+                  <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+                    {errorMessage}
+                  </div>
+                )}
+
                 {/* Submit Button */}
                 <button
                   type="submit"
-                  className="w-full bg-primary hover:bg-primary-600 text-white rounded-lg py-2 transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98]"
+                  disabled={isRegisterLoading || isLoginLoading}
+                  className={`w-full bg-primary hover:bg-primary-600 text-white rounded-lg py-2 transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 ${
+                    isRegisterLoading || isLoginLoading
+                      ? "opacity-70 cursor-not-allowed hover:scale-100"
+                      : ""
+                  }`}
                 >
-                  {authMode === "login" ? "Login" : "Create Account"}
+                  {(isRegisterLoading || isLoginLoading) && (
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
+                  )}
+                  {authMode === "login"
+                    ? isLoginLoading
+                      ? "Logging in..."
+                      : "Login"
+                    : isRegisterLoading
+                    ? "Creating Account..."
+                    : "Create Account"}
                 </button>
 
                 {/* Forgot PIN Link */}

@@ -1,32 +1,32 @@
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { JwtPayload as DefaultJwtPayload } from "jwt-decode";
+import { useEffect, useState } from "react";
+import { Toaster } from "react-hot-toast";
+import { Provider } from "react-redux";
 import {
   BrowserRouter,
-  Routes,
-  Route,
   Navigate,
+  Route,
+  Routes,
   useParams,
 } from "react-router-dom";
-import { Provider } from "react-redux";
-import Index from "./pages/Index";
-import Dashboard from "./pages/Dashboard";
-import SendMoney from "./pages/SendMoney";
-import CashActions from "./pages/CashActions";
-import Notifications from "./pages/Notifications";
-import UserManagement from "./pages/UserManagement";
-import Metrics from "./pages/Metrics";
-import Settings from "./pages/Settings";
-import NotFound from "./pages/NotFound";
-import { useEffect, useState } from "react";
 import Loader from "./components/ui/Loader";
-import { store } from "./redux/store";
-import { Toaster } from "react-hot-toast";
-import PrivateRoutes from "./routes/PrivateRoutes";
-import { decodedToken } from "./helpers/utils/jwt";
-import { JwtPayload as DefaultJwtPayload } from "jwt-decode";
-import { getUserInfo } from "./services/auth.service";
+import CashActions from "./pages/CashActions";
+import Dashboard from "./pages/Dashboard";
+import Home from "./pages/Home";
+import Index from "./pages/Index";
+import Metrics from "./pages/Metrics";
+import NotFound from "./pages/NotFound";
+import Notifications from "./pages/Notifications";
+import SendMoney from "./pages/SendMoney";
+import Settings from "./pages/Settings";
+import UserManagement from "./pages/UserManagement";
 import UserNotifications from "./pages/UserNotifications";
+import { store } from "./redux/store";
+import PrivateRoutes from "./routes/PrivateRoutes";
+import { getUserInfo } from "./services/auth.service";
 
 interface JwtPayload extends DefaultJwtPayload {
   role?: "user" | "admin" | "agent";
@@ -86,7 +86,7 @@ const App = () => {
             <Sonner />
             <BrowserRouter>
               <Routes>
-                <Route path="/" element={<Index />} />
+                <Route path="/" element={<Home />} />
                 <Route path="/login" element={<Index />} />
                 <Route path="/register" element={<Index />} />
 

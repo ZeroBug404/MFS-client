@@ -33,7 +33,10 @@ export interface Transaction {
   _id: string;
   amount: number;
   createdAt: string;
-  from: { name: string };
-  to: { name: string };
+  from:
+    | { _id?: string; name: string; phoneNo?: string; role?: string }
+    | string;
+  to: { _id?: string; name: string; phoneNo?: string; role?: string } | string;
   type: string;
+  fee?: number;
 }

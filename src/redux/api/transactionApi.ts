@@ -1,10 +1,4 @@
-import { getFromLocalStorage } from "../../helpers/utils/saveData";
 import { baseApi } from "./baseApi";
-
-const token = getFromLocalStorage("accessToken");
-const headers = {
-  Authorization: `${token}`,
-};
 
 export const transactionApi = baseApi.injectEndpoints({
   endpoints: (build) => ({
@@ -12,7 +6,6 @@ export const transactionApi = baseApi.injectEndpoints({
       query: (query) => ({
         url: `transactions`,
         method: "GET",
-        headers: headers,
         params: query,
       }),
     }),
@@ -20,7 +13,6 @@ export const transactionApi = baseApi.injectEndpoints({
       query: (data) => ({
         url: `transactions/send`,
         method: "POST",
-        headers: headers,
         body: data,
       }),
     }),
@@ -28,7 +20,6 @@ export const transactionApi = baseApi.injectEndpoints({
       query: (data) => ({
         url: `transactions/cash-in`,
         method: "POST",
-        headers: headers,
         body: data,
       }),
     }),
@@ -36,7 +27,6 @@ export const transactionApi = baseApi.injectEndpoints({
       query: (data) => ({
         url: `transactions/agent-cash-in`,
         method: "POST",
-        headers: headers,
         body: data,
       }),
     }),
@@ -44,7 +34,6 @@ export const transactionApi = baseApi.injectEndpoints({
       query: (data) => ({
         url: `transactions/cash-out`,
         method: "POST",
-        headers: headers,
         body: data,
       }),
     }),

@@ -1,18 +1,21 @@
 import RoleNav from "@/components/RoleNav";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Bell,
-  AlertTriangle,
-  CheckCircle2,
-  Info,
-  XCircle,
-  Clock,
-} from "lucide-react";
+import { Transaction, User, UserInfo } from "@/interface/interfsces";
 import { cn, transformToNotifications } from "@/lib/utils";
 import { useGettransactionHistoryQuery } from "@/redux/api/transactionApi";
-import { User, UserInfo, UsersData } from "@/interface/interfsces";
-import { useGetAllUserQuery } from "@/redux/api/userApi";
+import {
+  useGetAllUserQuery,
+  useTransactionHistoryQuery,
+} from "@/redux/api/userApi";
 import { getUserInfo } from "@/services/auth.service";
+import {
+  AlertTriangle,
+  Bell,
+  CheckCircle2,
+  Clock,
+  Info,
+  XCircle,
+} from "lucide-react";
 
 interface Notification {
   id: number;
@@ -23,73 +26,100 @@ interface Notification {
   read: boolean;
 }
 
-const getNotificationsByRole = (
-  role: "user" | "agent" | "admin",
-  baseNotifications: Notification[]
+const getAdminNotifications = (
+  pendingAgentsCount: number,
+  totalTransactions: number,
+  recentTransactions: Transaction[]
 ): Notification[] => {
-  // const baseNotifications: Notification[] = [
-  //   {
-  //     id: 1,
-  //     type: "success",
-  //     title: "Transaction Successful",
-  //     message: "Your last transaction has been processed successfully.",
-  //     time: "2 minutes ago",
-  //     read: false,
-  //   },
-  //   {
-  //     id: 2,
-  //     type: "info",
-  //     title: "System Update",
-  //     message: "The system will undergo maintenance in 24 hours.",
-  //     time: "1 hour ago",
-  //     read: true,
-  //   },
-  // ];
+  const adminNotifications: Notification[] = [];
 
-  const agentNotifications: Notification[] = [
-    // {
-    //   id: 3,
-    //   type: "warning",
-    //   title: "Low Cash Balance",
-    //   message: "Your cash balance is running low. Please add funds.",
-    //   time: "30 minutes ago",
-    //   read: false,
-    // },
-    // {
-    //   id: 4,
-    //   type: "success",
-    //   title: "Commission Earned",
-    //   message: "You've earned $50 in commission today.",
-    //   time: "2 hours ago",
-    //   read: true,
-    // },
-  ];
-
-  const adminNotifications: Notification[] = [
-    {
-      id: 5,
-      type: "error",
-      title: "System Alert",
-      message: "High transaction volume detected. Please monitor.",
-      time: "5 minutes ago",
-      read: false,
-    },
-    {
-      id: 6,
+  // Pending agent approvals
+  if (pendingAgentsCount > 0) {
+    adminNotifications.push({
+      id: Date.now() + 1,
       type: "warning",
       title: "Agent Verification Required",
-      message: "New agent registration pending approval.",
-      time: "1 hour ago",
-      read: true,
-    },
-  ];
+      message: `${pendingAgentsCount} agent${
+        pendingAgentsCount > 1 ? "s" : ""
+      } pending approval.`,
+      time: "Just now",
+      read: false,
+    });
+  }
+
+  // High transaction volume alert
+  if (totalTransactions > 100) {
+    adminNotifications.push({
+      id: Date.now() + 2,
+      type: "info",
+      title: "High Transaction Volume",
+      message: `${totalTransactions} transactions processed today. System performing well.`,
+      time: "Just now",
+      read: false,
+    });
+  }
+
+  // Recent high-value transactions
+  const highValueTransactions = recentTransactions
+    .filter((t: Transaction) => t.amount > 10000)
+    .slice(0, 3);
+
+  highValueTransactions.forEach((transaction: Transaction, index: number) => {
+    const senderName =
+      typeof transaction.from === "object" && "name" in transaction.from
+        ? transaction.from.name
+        : "Unknown";
+    const receiverName =
+      typeof transaction.to === "object" && "name" in transaction.to
+        ? transaction.to.name
+        : "Unknown";
+
+    // Calculate time ago
+    const now = new Date();
+    const transactionDate = new Date(transaction.createdAt);
+    const diffInSeconds = Math.floor(
+      (now.getTime() - transactionDate.getTime()) / 1000
+    );
+    let timeAgo = "";
+    if (diffInSeconds < 60) {
+      timeAgo = `${diffInSeconds} seconds ago`;
+    } else if (diffInSeconds < 3600) {
+      const minutes = Math.floor(diffInSeconds / 60);
+      timeAgo = `${minutes} minute${minutes > 1 ? "s" : ""} ago`;
+    } else if (diffInSeconds < 86400) {
+      const hours = Math.floor(diffInSeconds / 3600);
+      timeAgo = `${hours} hour${hours > 1 ? "s" : ""} ago`;
+    } else {
+      const days = Math.floor(diffInSeconds / 86400);
+      timeAgo = `${days} day${days > 1 ? "s" : ""} ago`;
+    }
+
+    adminNotifications.push({
+      id: Date.now() + 10 + index,
+      type: "info",
+      title: "High-Value Transaction",
+      message: `${senderName} sent ${transaction.amount} Taka to ${receiverName}`,
+      time: timeAgo,
+      read: false,
+    });
+  });
+
+  return adminNotifications;
+};
+
+const getNotificationsByRole = (
+  role: "user" | "agent" | "admin",
+  baseNotifications: Notification[],
+  adminNotifications: Notification[] = []
+): Notification[] => {
+  const agentNotifications: Notification[] = [];
 
   switch (role) {
     case "admin":
       return [
+        ...adminNotifications,
         ...baseNotifications,
         ...agentNotifications,
-        ...adminNotifications,
       ];
     case "agent":
       return [...baseNotifications, ...agentNotifications];
@@ -117,32 +147,118 @@ interface NotificationsProps {
 
 const Notifications = ({ role = "user" }: NotificationsProps) => {
   const userInfo: UserInfo | string = getUserInfo();
-  const { data: usersData }: { data?: UsersData } = useGetAllUserQuery({});
+  const { data: usersData, isLoading: isLoadingUsers } = useGetAllUserQuery({});
 
   const user: User | undefined = usersData?.data?.find(
     (user: User) =>
       typeof userInfo !== "string" && user.phoneNo === userInfo?.contactNo
   );
 
-  const query = { userId: user?._id };
+  // For admin, fetch all transactions; for others, fetch user-specific
+  const isAdmin = role === "admin";
+  const shouldFetchTransactions = isAdmin ? true : !!user?._id;
+  const query = isAdmin
+    ? undefined
+    : shouldFetchTransactions
+    ? { userId: user._id }
+    : undefined;
 
-  const { data } = useGettransactionHistoryQuery(query);
+  const {
+    data,
+    isLoading: isLoadingTransactions,
+    error: transactionError,
+  } = useGettransactionHistoryQuery(query || {}, {
+    skip: !shouldFetchTransactions,
+  });
 
-  console.log(data?.data);
+  // For admin, also fetch all transactions from admin endpoint
+  const { data: adminTransactionsData, isLoading: isLoadingAdminTransactions } =
+    useTransactionHistoryQuery(undefined, {
+      skip: !isAdmin,
+    });
 
-  const transactions = data?.data?.filter(
-    (transaction) =>
-      transaction.from._id === user?._id || transaction.to._id === user?._id
-  );
+  // Use appropriate transactions based on role
+  const transactions = isAdmin
+    ? adminTransactionsData?.data || data?.data || []
+    : data?.data || [];
 
+  // Calculate pending agents for admin
+  const pendingAgents = isAdmin
+    ? usersData?.data?.filter(
+        (u: User) => u.role === "agent" && !u.isApproved
+      ) || []
+    : [];
+
+  // Transform transactions to notifications
+  // Admin sees all transactions, users see only their own
   const baseNotifications: Notification[] = transformToNotifications(
-    transactions || []
+    transactions,
+    isAdmin ? undefined : user?._id,
+    isAdmin
   );
+
+  // Generate admin-specific notifications
+  const adminNotifications = isAdmin
+    ? getAdminNotifications(
+        pendingAgents.length,
+        transactions.length,
+        transactions.slice(0, 10) // Recent 10 transactions
+      )
+    : [];
 
   const notifications: Notification[] = getNotificationsByRole(
     role,
-    baseNotifications
+    baseNotifications,
+    adminNotifications
   );
+
+  // Show loading state
+  if (
+    isLoadingUsers ||
+    isLoadingTransactions ||
+    (isAdmin && isLoadingAdminTransactions)
+  ) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-primary-50 to-primary-100">
+        <RoleNav role={role} />
+        <div className="lg:pl-64 p-8">
+          <div className="max-w-4xl mx-auto space-y-8">
+            <div className="flex items-center gap-4">
+              <div className="p-2 bg-primary/10 rounded-lg">
+                <Bell className="w-6 h-6 text-primary" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">
+                  Notifications
+                </h1>
+                <p className="text-gray-600">Loading notifications...</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state
+  if (transactionError) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-primary-50 to-primary-100">
+        <RoleNav role={role} />
+        <div className="lg:pl-64 p-8">
+          <div className="max-w-4xl mx-auto space-y-8">
+            <Card className="bg-white/80 backdrop-blur-sm">
+              <CardContent className="pt-6">
+                <div className="text-center text-red-600">
+                  Failed to load notifications. Please try again.
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-primary-50 to-primary-100">
@@ -173,37 +289,53 @@ const Notifications = ({ role = "user" }: NotificationsProps) => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {notifications.map((notification) => (
-                  <div
-                    key={notification.id}
-                    className={cn(
-                      "p-4 rounded-lg border transition-colors",
-                      notification.read
-                        ? "bg-gray-50/50 border-gray-100"
-                        : "bg-white border-gray-200"
-                    )}
-                  >
-                    <div className="flex gap-4">
-                      <div className="mt-1">
-                        {getNotificationIcon(notification.type)}
-                      </div>
-                      <div className="flex-1 space-y-1">
-                        <div className="flex items-start justify-between gap-4">
-                          <p className="font-medium text-gray-900">
-                            {notification.title}
-                          </p>
-                          <div className="flex items-center gap-2 text-sm text-gray-500">
-                            <Clock className="w-4 h-4" />
-                            <span>{notification.time}</span>
-                          </div>
+              {notifications.length === 0 ? (
+                <div className="text-center py-12">
+                  <Bell className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-500 text-lg font-medium">
+                    No notifications yet
+                  </p>
+                  <p className="text-gray-400 text-sm mt-2">
+                    {role === "admin"
+                      ? "System notifications will appear here"
+                      : "Your transaction notifications will appear here"}
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {notifications.map((notification) => (
+                    <div
+                      key={notification.id}
+                      className={cn(
+                        "p-4 rounded-lg border transition-colors",
+                        notification.read
+                          ? "bg-gray-50/50 border-gray-100"
+                          : "bg-white border-gray-200"
+                      )}
+                    >
+                      <div className="flex gap-4">
+                        <div className="mt-1">
+                          {getNotificationIcon(notification.type)}
                         </div>
-                        <p className="text-gray-600">{notification.message}</p>
+                        <div className="flex-1 space-y-1">
+                          <div className="flex items-start justify-between gap-4">
+                            <p className="font-medium text-gray-900">
+                              {notification.title}
+                            </p>
+                            <div className="flex items-center gap-2 text-sm text-gray-500">
+                              <Clock className="w-4 h-4" />
+                              <span>{notification.time}</span>
+                            </div>
+                          </div>
+                          <p className="text-gray-600">
+                            {notification.message}
+                          </p>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

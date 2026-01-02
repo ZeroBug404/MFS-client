@@ -1,23 +1,19 @@
 import RoleNav from "@/components/RoleNav";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Bell,
-  AlertTriangle,
-  CheckCircle2,
-  Info,
-  XCircle,
-  Clock,
-} from "lucide-react";
+import { User, UserInfo, UsersData } from "@/interface/interfsces";
 import { cn, transformToNotifications } from "@/lib/utils";
 import { useGettransactionHistoryQuery } from "@/redux/api/transactionApi";
-import { User, UserInfo, UsersData } from "@/interface/interfsces";
-import {
-  useGetAllUserQuery,
-  useTransactionHistoryQuery,
-} from "@/redux/api/userApi";
+import { useGetAllUserQuery } from "@/redux/api/userApi";
 import { getUserInfo } from "@/services/auth.service";
+import {
+  AlertTriangle,
+  Bell,
+  CheckCircle2,
+  Clock,
+  Info,
+  XCircle,
+} from "lucide-react";
 import { useParams } from "react-router-dom";
-import { useState } from "react";
 
 interface Notification {
   id: number;
@@ -73,28 +69,77 @@ const UserNotifications = () => {
   const { data: usersData }: { data?: UsersData } = useGetAllUserQuery({});
 
   const user: User | undefined = usersData?.data?.find(
-    (user: User) => typeof userInfo !== "string" && user._id === userId
+    (user: User) => user._id === userId
   );
 
-  console.log(user);
+  // Only fetch transactions if user is found and has an ID
+  const shouldFetchTransactions = !!user?._id;
+  const query = shouldFetchTransactions ? { userId: user._id } : undefined;
 
-  const { data } = useTransactionHistoryQuery({});
+  const {
+    data,
+    isLoading: isLoadingTransactions,
+    error: transactionError,
+  } = useGettransactionHistoryQuery(query || {}, {
+    skip: !shouldFetchTransactions,
+  });
 
-  console.log(data);
-
-  const transactions = data?.data?.filter(
-    (transaction) =>
-      transaction.from._id === user?._id || transaction.to._id === user?._id
-  );
+  // Use transactions directly from API (already filtered by backend)
+  const transactions = data?.data || [];
 
   const baseNotifications: Notification[] = transformToNotifications(
-    transactions || []
+    transactions,
+    user?._id
   );
 
   const notifications: Notification[] = getNotificationsByRole(
     "admin",
     baseNotifications
   );
+
+  // Show loading state
+  if (isLoadingTransactions) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-primary-50 to-primary-100">
+        <RoleNav role="admin" />
+        <div className="lg:pl-64 p-8">
+          <div className="max-w-4xl mx-auto space-y-8">
+            <div className="flex items-center gap-4">
+              <div className="p-2 bg-primary/10 rounded-lg">
+                <Bell className="w-6 h-6 text-primary" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">
+                  Notifications
+                </h1>
+                <p className="text-gray-600">Loading notifications...</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state
+  if (transactionError) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-primary-50 to-primary-100">
+        <RoleNav role="admin" />
+        <div className="lg:pl-64 p-8">
+          <div className="max-w-4xl mx-auto space-y-8">
+            <Card className="bg-white/80 backdrop-blur-sm">
+              <CardContent className="pt-6">
+                <div className="text-center text-red-600">
+                  Failed to load notifications. Please try again.
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-primary-50 to-primary-100">
