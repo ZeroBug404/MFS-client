@@ -18,6 +18,7 @@ import {
   useAgentCashInMutation,
   useCashInMutation,
   useCashOutMutation,
+  useGetDashboardStatsQuery,
   useSendMoneyMutation,
 } from "@/redux/api/transactionApi";
 import { useGetAllUserQuery, useGetBalanceQuery } from "@/redux/api/userApi";
@@ -47,41 +48,7 @@ import {
   YAxis,
 } from "recharts";
 
-const transactionHistory = [
-  { time: "00:00", amount: 1200 },
-  { time: "04:00", amount: 1800 },
-  { time: "08:00", amount: 2400 },
-  { time: "12:00", amount: 3600 },
-  { time: "16:00", amount: 2800 },
-  { time: "20:00", amount: 2000 },
-];
-
-const recentTransactions = [
-  {
-    id: 1,
-    type: "send",
-    amount: 500,
-    recipient: "Sarah Johnson",
-    time: "2 minutes ago",
-    status: "completed",
-  },
-  {
-    id: 2,
-    type: "receive",
-    amount: 1200,
-    sender: "Mike Smith",
-    time: "15 minutes ago",
-    status: "completed",
-  },
-  {
-    id: 3,
-    type: "send",
-    amount: 750,
-    recipient: "Alex Wong",
-    time: "1 hour ago",
-    status: "pending",
-  },
-];
+// These will be replaced with real data from the API
 
 interface DashboardProps {
   role: "user" | "agent" | "admin";
@@ -115,6 +82,20 @@ const Dashboard = ({ role }: DashboardProps) => {
 
   const { data: userBalance, isLoading } = useGetBalanceQuery(query);
 
+  // Fetch dashboard statistics
+  const {
+    data: dashboardStats,
+    isLoading: isLoadingStats,
+    refetch: refetchStats,
+  } = useGetDashboardStatsQuery({
+    userId: user?._id,
+    role: user?.role,
+  });
+
+  const stats = dashboardStats?.data || {};
+  const transactionHistory = stats.chartData || [];
+  const recentTransactions = stats.recentTransactions || [];
+
   const handleSendMoney = async () => {
     if (!amount || !recipient) {
       return toast.error("Please fill in all fields");
@@ -140,6 +121,7 @@ const Dashboard = ({ role }: DashboardProps) => {
       if (res?.data?.success || res?.success) {
         setAmount("");
         setRecipient("");
+        refetchStats();
         toast.success(`Successfully sent ${amount} Taka to ${recipient}`);
       } else {
         toast.error("Send money failed");
@@ -181,6 +163,7 @@ const Dashboard = ({ role }: DashboardProps) => {
       if (res?.data?.fee || res?.success) {
         setAmount("");
         setRecipient("");
+        refetchStats();
         toast.success("Cash out successful");
       } else {
         toast.error("Cash out failed");
@@ -291,6 +274,7 @@ const Dashboard = ({ role }: DashboardProps) => {
       if (res?.success || res?.data) {
         setAmount("");
         setRecipient("");
+        refetchStats();
         toast.success(`Successfully cashed in ${amount} Taka to ${recipient}`);
       } else {
         toast.error("Cash in failed");
@@ -417,9 +401,22 @@ const Dashboard = ({ role }: DashboardProps) => {
                     </div>
                     <Users className="w-5 h-5 text-primary-600" />
                   </div>
-                  <div className="mt-4 flex items-center gap-2 text-sm text-green-600">
-                    <ArrowUp className="w-4 h-4" />
-                    <span>12% increase</span>
+                  <div
+                    className={`mt-4 flex items-center gap-2 text-sm ${
+                      (stats.userGrowth || 0) >= 0
+                        ? "text-green-600"
+                        : "text-red-600"
+                    }`}
+                  >
+                    {(stats.userGrowth || 0) >= 0 ? (
+                      <ArrowUp className="w-4 h-4" />
+                    ) : (
+                      <ArrowDown className="w-4 h-4" />
+                    )}
+                    <span>
+                      {Math.abs(stats.userGrowth || 0)}%{" "}
+                      {(stats.userGrowth || 0) >= 0 ? "increase" : "decrease"}
+                    </span>
                   </div>
                 </CardContent>
               </Card>
@@ -432,14 +429,30 @@ const Dashboard = ({ role }: DashboardProps) => {
                         System Revenue
                       </p>
                       <h3 className="text-2xl font-bold">
-                        {totalBalance} Taka
+                        {stats.systemRevenue?.toFixed(2) || totalBalance || 0}{" "}
+                        Taka
                       </h3>
                     </div>
                     <DollarSign className="w-5 h-5 text-primary-600" />
                   </div>
-                  <div className="mt-4 flex items-center gap-2 text-sm text-green-600">
-                    <ArrowUp className="w-4 h-4" />
-                    <span>8.3% increase</span>
+                  <div
+                    className={`mt-4 flex items-center gap-2 text-sm ${
+                      (stats.revenueGrowth || 0) >= 0
+                        ? "text-green-600"
+                        : "text-red-600"
+                    }`}
+                  >
+                    {(stats.revenueGrowth || 0) >= 0 ? (
+                      <ArrowUp className="w-4 h-4" />
+                    ) : (
+                      <ArrowDown className="w-4 h-4" />
+                    )}
+                    <span>
+                      {Math.abs(stats.revenueGrowth || 0)}%{" "}
+                      {(stats.revenueGrowth || 0) >= 0
+                        ? "increase"
+                        : "decrease"}
+                    </span>
                   </div>
                 </CardContent>
               </Card>
@@ -469,14 +482,22 @@ const Dashboard = ({ role }: DashboardProps) => {
                       <p className="text-sm font-medium text-gray-500">
                         System Health
                       </p>
-                      <h3 className="text-2xl font-bold">98.2%</h3>
+                      <h3 className="text-2xl font-bold">
+                        {stats.systemHealth || 100}%
+                      </h3>
                     </div>
                     <BarChart className="w-5 h-5 text-primary-600" />
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-2.5 mt-4">
                     <div
-                      className="bg-green-500 h-2.5 rounded-full"
-                      style={{ width: "98.2%" }}
+                      className={`h-2.5 rounded-full ${
+                        (stats.systemHealth || 100) >= 80
+                          ? "bg-green-500"
+                          : (stats.systemHealth || 100) >= 50
+                          ? "bg-yellow-500"
+                          : "bg-red-500"
+                      }`}
+                      style={{ width: `${stats.systemHealth || 100}%` }}
                     ></div>
                   </div>
                 </CardContent>
@@ -662,13 +683,15 @@ const Dashboard = ({ role }: DashboardProps) => {
                           <p className="text-sm font-medium text-gray-500">
                             Today's Transactions
                           </p>
-                          <h3 className="text-2xl font-bold">42</h3>
+                          <h3 className="text-2xl font-bold">
+                            {stats.todayTransactions || 0}
+                          </h3>
                         </div>
                         <ArrowUpRight className="w-5 h-5 text-primary-600" />
                       </div>
                       <div className="mt-4 flex items-center gap-2 text-sm text-green-600">
                         <ArrowUp className="w-4 h-4" />
-                        <span>15% increase</span>
+                        <span>Today's activity</span>
                       </div>
                     </CardContent>
                   </Card>
@@ -685,9 +708,7 @@ const Dashboard = ({ role }: DashboardProps) => {
                             Cash Balance
                           </p>
                           <h3
-                            className={`text-2xl font-bold ${
-                              isBalanceVisible ? "" : "blur"
-                            }`}
+                            className={`text-2xl font-bold`}
                           >
                             {formattedBalance} Taka
                           </h3>
@@ -708,13 +729,15 @@ const Dashboard = ({ role }: DashboardProps) => {
                           <p className="text-sm font-medium text-gray-500">
                             Commission Earned
                           </p>
-                          <h3 className="text-2xl font-bold">$234</h3>
+                          <h3 className="text-2xl font-bold">
+                            {stats.commissionEarned || 0} Taka
+                          </h3>
                         </div>
                         <DollarSign className="w-5 h-5 text-primary-600" />
                       </div>
                       <div className="mt-4 flex items-center gap-2 text-sm text-green-600">
                         <ArrowUp className="w-4 h-4" />
-                        <span>8% increase</span>
+                        <span>Total earned</span>
                       </div>
                     </CardContent>
                   </Card>
@@ -724,16 +747,23 @@ const Dashboard = ({ role }: DashboardProps) => {
                       <div className="flex justify-between items-start">
                         <div className="space-y-2">
                           <p className="text-sm font-medium text-gray-500">
-                            Customer Rating
+                            Total Transactions
                           </p>
-                          <h3 className="text-2xl font-bold">4.8/5</h3>
+                          <h3 className="text-2xl font-bold">
+                            {recentTransactions.length}
+                          </h3>
                         </div>
                         <Users className="w-5 h-5 text-primary-600" />
                       </div>
                       <div className="w-full bg-gray-200 rounded-full h-2.5 mt-4">
                         <div
                           className="bg-primary h-2.5 rounded-full"
-                          style={{ width: "96%" }}
+                          style={{
+                            width: `${Math.min(
+                              (recentTransactions.length / 100) * 100,
+                              100
+                            )}%`,
+                          }}
                         ></div>
                       </div>
                     </CardContent>
@@ -974,11 +1004,12 @@ const Dashboard = ({ role }: DashboardProps) => {
                       <p className="text-sm font-medium text-gray-500">
                         Monthly Spending
                       </p>
-                      <h3 className="text-2xl font-bold">4,230 Taka</h3>
+                      <h3 className="text-2xl font-bold">
+                        {stats.monthlySpending?.toFixed(2) || 0} Taka
+                      </h3>
                     </div>
-                    <span className="flex items-center text-red-600 text-sm font-medium">
-                      <ArrowDown className="w-4 h-4 mr-1" />
-                      3.1%
+                    <span className="flex items-center text-gray-600 text-sm font-medium">
+                      This month
                     </span>
                   </div>
                   <div className="h-[60px] mt-4">
@@ -1004,7 +1035,9 @@ const Dashboard = ({ role }: DashboardProps) => {
                       <p className="text-sm font-medium text-gray-500">
                         Daily Transactions
                       </p>
-                      <h3 className="text-2xl font-bold">32</h3>
+                      <h3 className="text-2xl font-bold">
+                        {stats.todayTransactions || 0}
+                      </h3>
                     </div>
                     <ArrowUpRight className="w-5 h-5 text-primary-600" />
                   </div>
@@ -1020,18 +1053,26 @@ const Dashboard = ({ role }: DashboardProps) => {
                   <div className="flex justify-between items-start">
                     <div className="space-y-2">
                       <p className="text-sm font-medium text-gray-500">
-                        Active Goals
+                        Available Balance
                       </p>
-                      <h3 className="text-2xl font-bold">3/5</h3>
+                      <h3 className="text-2xl font-bold">
+                        {formattedBalance} Taka
+                      </h3>
                     </div>
                     <span className="flex items-center text-green-600 text-sm font-medium">
-                      On Track
+                      <Wallet className="w-4 h-4 mr-1" />
+                      Available
                     </span>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-2.5 mt-4">
                     <div
                       className="bg-primary h-2.5 rounded-full"
-                      style={{ width: "60%" }}
+                      style={{
+                        width: `${Math.min(
+                          ((user?.balance || 0) / 1000) * 10,
+                          100
+                        )}%`,
+                      }}
                     ></div>
                   </div>
                 </CardContent>

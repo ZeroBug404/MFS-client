@@ -15,7 +15,7 @@ interface JwtPayload extends DefaultJwtPayload {
   role?: string;
 }
 // import { toast } from "@/hooks/use-toast";
-import loginLogo from "@/assets/image/E-Wallet-bro.png";
+import loginLogo from "@/assets/image/Sign up-cuate.png";
 import useValidation from "@/hooks/useValidation"; // Import the custom hook
 
 type AuthMode = "login" | "register";
@@ -174,7 +174,7 @@ const Index = () => {
             {/* Logo Area */}
             <div className="text-center mb-8">
               <h2 className="text-3xl font-bold text-primary-800">
-                WalletWaves
+                AmarCash
               </h2>
               <p className="text-primary-600 mt-2">
                 Secure Mobile Financial Services

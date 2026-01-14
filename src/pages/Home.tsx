@@ -3,15 +3,23 @@ import { getUserInfo } from "@/services/auth.service";
 import { motion } from "framer-motion";
 import {
   ArrowRight,
+  Banknote,
   CheckCircle2,
   Clock,
   CreditCard,
   Globe,
   Lock,
+  PiggyBank,
+  Plane,
+  Quote,
+  Receipt,
+  Send,
   Shield,
+  ShoppingBag,
   Smartphone,
   Star,
   TrendingUp,
+  UserPlus,
   Users,
   Zap,
 } from "lucide-react";
@@ -76,6 +84,69 @@ const Home = () => {
     { label: "Rating", value: "4.9/5", icon: Star },
   ];
 
+  const futureFeatures = [
+    {
+      icon: ShoppingBag,
+      title: "Merchant Payments",
+      description:
+        "Scan QR codes and pay at thousands of merchant outlets nationwide.",
+    },
+    {
+      icon: Receipt,
+      title: "Utility Bill Pay",
+      description:
+        "Pay your electricity, water, and gas bills instantly from your app.",
+    },
+    {
+      icon: PiggyBank,
+      title: "Smart Savings",
+      description:
+        "Grow your wealth with high-yield savings accounts and fixed deposits.",
+    },
+    {
+      icon: Plane,
+      title: "Global Remittance",
+      description:
+        "Receive money from loved ones abroad directly into your wallet.",
+    },
+  ];
+
+  const howItWorks = [
+    {
+      icon: UserPlus,
+      title: "Create Account",
+      description: "Sign up in minutes with your NID and Phone number.",
+    },
+    {
+      icon: Banknote,
+      title: "Add Money",
+      description: "Cash in at any agent point or link your bank account.",
+    },
+    {
+      icon: Send,
+      title: "Start Transacting",
+      description: "Send money, pay bills, and recharge instantly.",
+    },
+  ];
+
+  const testimonials = [
+    {
+      name: "Sarah J.",
+      role: "Small Business Owner",
+      text: "AmarCash has made managing my shop's payments so much easier. The agent app is a lifesaver!",
+    },
+    {
+      name: "Rahim U.",
+      role: "Freelancer",
+      text: "I receive payments from my clients instantly. The security features give me peace of mind.",
+    },
+    {
+      name: "Tanvir H.",
+      role: "Student",
+      text: "Best app for mobile recharge and sending money to friends. Super fast and reliable.",
+    },
+  ];
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-primary-50 via-white to-primary-50">
       {/* Header */}
@@ -90,10 +161,10 @@ const Home = () => {
           <div className="flex items-center justify-between h-20">
             <div className="flex items-center gap-2">
               <div className="w-10 h-10 bg-gradient-to-br from-primary-600 to-primary-800 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-xl">W</span>
+                <span className="text-white font-bold text-xl">A</span>
               </div>
               <span className="text-2xl font-bold text-primary-800">
-                WalletWaves
+                AmarCash
               </span>
             </div>
 
@@ -222,7 +293,7 @@ const Home = () => {
             className="text-center mb-16"
           >
             <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
-              Why Choose WalletWaves?
+              Why Choose AmarCash?
             </h2>
             <p className="text-xl text-gray-600 max-w-2xl mx-auto">
               Everything you need for secure and efficient financial
@@ -255,6 +326,50 @@ const Home = () => {
         </div>
       </section>
 
+      {/* How It Works Section */}
+      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-white to-primary-50">
+        <div className="max-w-7xl mx-auto">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+            className="text-center mb-16"
+          >
+            <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
+              How It Works
+            </h2>
+            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+              Get started with AmarCash in three simple steps.
+            </p>
+          </motion.div>
+
+          <div className="grid md:grid-cols-3 gap-8 relative">
+            {/* Connecting Line (Desktop) */}
+            <div className="hidden md:block absolute top-12 left-[16%] right-[16%] h-0.5 bg-primary-200 -z-0" />
+
+            {howItWorks.map((step, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5, delay: index * 0.2 }}
+                className="relative z-10 text-center"
+              >
+                <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg border-4 border-primary-50">
+                  <step.icon className="w-10 h-10 text-primary-600" />
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 mb-3">
+                  {step.title}
+                </h3>
+                <p className="text-gray-600">{step.description}</p>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* About Section */}
       <section
         id="about"
@@ -272,7 +387,7 @@ const Home = () => {
                 Built for Everyone
               </h2>
               <p className="text-lg text-gray-600 mb-6 leading-relaxed">
-                WalletWaves is designed to serve users, agents, and
+                AmarCash is designed to serve users, agents, and
                 administrators with a comprehensive mobile financial service
                 platform. Whether you're sending money to friends, managing cash
                 operations, or overseeing the entire system, we've got you
@@ -315,6 +430,98 @@ const Home = () => {
         </div>
       </section>
 
+      {/* Testimonials Section */}
+      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-primary-900 text-white relative overflow-hidden">
+        {/* Decorative Circles */}
+        <div className="absolute top-0 left-0 w-64 h-64 bg-primary-800 rounded-full opacity-50 -translate-x-1/2 -translate-y-1/2" />
+        <div className="absolute bottom-0 right-0 w-96 h-96 bg-primary-800 rounded-full opacity-50 translate-x-1/3 translate-y-1/3" />
+
+        <div className="max-w-7xl mx-auto relative z-10">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+            className="text-center mb-16"
+          >
+            <h2 className="text-4xl md:text-5xl font-bold mb-4">
+              Trusted by Thousands
+            </h2>
+            <p className="text-xl text-primary-200 max-w-2xl mx-auto">
+              See what our users have to say about their experience with AmarCash.
+            </p>
+          </motion.div>
+
+          <div className="grid md:grid-cols-3 gap-8">
+            {testimonials.map((testimonial, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5, delay: index * 0.1 }}
+                className="bg-primary-800/50 backdrop-blur-sm p-8 rounded-2xl border border-primary-700 hover:bg-primary-800 transition-colors"
+              >
+                <Quote className="w-10 h-10 text-primary-400 mb-6 opacity-50" />
+                <p className="text-lg text-primary-100 mb-6 leading-relaxed italic">
+                  "{testimonial.text}"
+                </p>
+                <div>
+                  <h4 className="font-bold text-white text-lg">
+                    {testimonial.name}
+                  </h4>
+                  <p className="text-primary-300 text-sm">{testimonial.role}</p>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Future Innovations Section */}
+      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-white">
+        <div className="max-w-7xl mx-auto">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+            className="text-center mb-16"
+          >
+            <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
+              Building for the Future
+            </h2>
+            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+              We are constantly innovating. Here is what is coming next to
+              AmarCash.
+            </p>
+          </motion.div>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+            {futureFeatures.map((feature, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5, delay: index * 0.1 }}
+                className="p-6 bg-primary-50 rounded-xl border border-primary-100/50 hover:shadow-lg transition-all duration-300 hover:bg-white text-center group"
+              >
+                <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center mb-4 mx-auto shadow-sm group-hover:scale-110 transition-transform duration-300">
+                  <feature.icon className="w-6 h-6 text-primary-600" />
+                </div>
+                <h3 className="text-lg font-bold text-gray-900 mb-2">
+                  {feature.title}
+                </h3>
+                <p className="text-gray-600 text-sm leading-relaxed">
+                  {feature.description}
+                </p>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* CTA Section */}
       <section className="py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-r from-primary-600 to-primary-800">
         <div className="max-w-4xl mx-auto text-center">
@@ -328,7 +535,7 @@ const Home = () => {
               Ready to Get Started?
             </h2>
             <p className="text-xl text-primary-100 mb-8">
-              Join thousands of users who trust WalletWaves for their financial
+              Join thousands of users who trust AmarCash for their financial
               transactions
             </p>
             {!isLoggedIn && (
@@ -356,10 +563,10 @@ const Home = () => {
             <div>
               <div className="flex items-center gap-2 mb-4">
                 <div className="w-10 h-10 bg-gradient-to-br from-primary-600 to-primary-800 rounded-lg flex items-center justify-center">
-                  <span className="text-white font-bold text-xl">W</span>
+                  <span className="text-white font-bold text-xl">A</span>
                 </div>
                 <span className="text-xl font-bold text-white">
-                  WalletWaves
+                  AmarCash
                 </span>
               </div>
               <p className="text-gray-400">
@@ -445,7 +652,7 @@ const Home = () => {
 
           <div className="border-t border-gray-800 pt-8 text-center text-gray-400">
             <p>
-              &copy; {new Date().getFullYear()} WalletWaves. All rights
+              &copy; {new Date().getFullYear()} AmarCash. All rights
               reserved.
             </p>
           </div>

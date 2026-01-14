@@ -302,39 +302,39 @@ const Notifications = ({ role = "user" }: NotificationsProps) => {
                   </p>
                 </div>
               ) : (
-                <div className="space-y-4">
-                  {notifications.map((notification) => (
-                    <div
-                      key={notification.id}
-                      className={cn(
-                        "p-4 rounded-lg border transition-colors",
-                        notification.read
-                          ? "bg-gray-50/50 border-gray-100"
-                          : "bg-white border-gray-200"
-                      )}
-                    >
-                      <div className="flex gap-4">
-                        <div className="mt-1">
-                          {getNotificationIcon(notification.type)}
-                        </div>
-                        <div className="flex-1 space-y-1">
-                          <div className="flex items-start justify-between gap-4">
-                            <p className="font-medium text-gray-900">
-                              {notification.title}
-                            </p>
-                            <div className="flex items-center gap-2 text-sm text-gray-500">
-                              <Clock className="w-4 h-4" />
-                              <span>{notification.time}</span>
-                            </div>
+              <div className="space-y-4">
+                {notifications.map((notification) => (
+                  <div
+                    key={notification.id}
+                    className={cn(
+                      "p-4 rounded-lg border transition-colors",
+                      notification.read
+                        ? "bg-gray-50/50 border-gray-100"
+                        : "bg-white border-gray-200"
+                    )}
+                  >
+                    <div className="flex gap-4">
+                      <div className="mt-1">
+                        {getNotificationIcon(notification.type)}
+                      </div>
+                      <div className="flex-1 space-y-1">
+                        <div className="flex items-start justify-between gap-4">
+                          <p className="font-medium text-gray-900">
+                            {notification.title}
+                          </p>
+                          <div className="flex items-center gap-2 text-sm text-gray-500">
+                            <Clock className="w-4 h-4" />
+                            <span>{notification.time}</span>
                           </div>
+                        </div>
                           <p className="text-gray-600">
                             {notification.message}
                           </p>
-                        </div>
                       </div>
                     </div>
-                  ))}
-                </div>
+                  </div>
+                ))}
+              </div>
               )}
             </CardContent>
           </Card>

@@ -37,6 +37,22 @@ export const transactionApi = baseApi.injectEndpoints({
         body: data,
       }),
     }),
+    getDashboardStats: build.query({
+      query: (params) => ({
+        url: `transactions/stats`,
+        method: "GET",
+        params,
+      }),
+      providesTags: ["Transactions"],
+    }),
+    getSystemMetrics: build.query({
+      query: (params) => ({
+        url: `transactions/metrics`,
+        method: "GET",
+        params,
+      }),
+      providesTags: ["Transactions"],
+    }),
   }),
 });
 
@@ -46,4 +62,6 @@ export const {
   useCashOutMutation,
   useCashInMutation,
   useAgentCashInMutation,
+  useGetDashboardStatsQuery,
+  useGetSystemMetricsQuery,
 } = transactionApi;

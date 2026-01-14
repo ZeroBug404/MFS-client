@@ -1,27 +1,17 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { AnimatePresence, motion } from "framer-motion";
 import {
-  Home,
-  Send,
-  DollarSign,
-  Bell,
-  User,
-  Menu,
-  Users,
-  Activity,
-  Settings,
-  UserCog,
-  LogOut,
+    Activity,
+    Bell,
+    Home,
+    LogOut,
+    Menu,
+    Settings,
+    User,
+    Users
 } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Button } from "@/components/ui/button";
+import { useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 
 type Role = "user" | "agent" | "admin";
 
@@ -112,7 +102,7 @@ const RoleNav = ({ role }: { role: Role }) => {
               <User className="w-5 h-5 text-white" />
             </div>
             <div>
-              <p className="font-medium text-gray-900">WalletWaves</p>
+              <p className="font-medium text-gray-900">AmarCash</p>
               <p className="text-sm text-gray-500 capitalize">{role}</p>
             </div>
           </div>
@@ -168,7 +158,7 @@ const RoleNav = ({ role }: { role: Role }) => {
                       <User className="w-5 h-5 text-white" />
                     </div>
                     <div>
-                      <p className="font-medium text-gray-900">WalletWaves</p>
+                      <p className="font-medium text-gray-900">AmarCash</p>
                       <p className="text-sm text-gray-500 capitalize">{role}</p>
                     </div>
                   </div>
